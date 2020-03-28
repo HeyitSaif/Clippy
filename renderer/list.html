@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* {
+  box-sizing: border-box;
+}
+
+#myInput {
+  background-image: url('/css/searchicon.png');
+  background-position: 5px 6px;
+  background-repeat: no-repeat;
+  width: 100%;
+  border: none;
+  background-color: rgb(238, 238, 238);
+  border-radius: 3px;
+  font-size: 12px;
+  box-shadow: inset 0 -5px 45px rgba(100,100,100,0.2), 0 1px  1px rgba(255,255,255,0.2);
+  padding: 6px 10px 6px 20px;
+  margin-bottom: 12px;
+}
+
+#myUL {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+#myUL li a{
+  padding: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #212121;
+  display: block
+}
+#myUL li:nth-child(odd)  {
+  display:block;
+  background: #f6f6f6; }
+
+#myUL li:hover:not(.header) {
+  background-color: #eee;
+}
+</style>
+<script src="./list.js"></script>
+</head>
+<body  onload="loaditems()">
+
+<input type="text" id="myInput" onkeyup="myFunction()" placeholder="Search " title="search">
+
+<ul id="myUL" type="1" >
+</ul>
+
+
+
+
+
+</body>
+</html>
