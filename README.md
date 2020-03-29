@@ -25,5 +25,6 @@ So,
 - Add about Window.
 - Allow user to change keys for hiding and pasting shortcuts through gui.
 - Find a perfect way to trigger pasting using hot keys without delay.
+- Auto Launch on startup
 
                          Any suggestion hit me up or create a pull request if you want in on fun!
