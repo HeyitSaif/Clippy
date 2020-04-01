@@ -1,7 +1,18 @@
 const { ipcRenderer,clipboard } = require('electron');
 const DataStore = require('../DataStore');
 const items = new DataStore({name: 'Items Main'})
+document.onkeydown = keydown;
 
+function keydown(evt){
+  if (!evt) evt = event;
+  if (evt.metaKey && evt.keyCode==70){ //CMND+F
+    document.getElementById("myInput").focus();
+  }
+  if (evt.ctrlKey && evt.keyCode==70){ //CTRL+F
+    document.getElementById("myInput").focus();
+  }
+
+}
 ipcRenderer.on("newItem",(event,item)=>{
     addElement(item);
 })

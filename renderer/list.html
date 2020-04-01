@@ -6,13 +6,26 @@
 * {
   box-sizing: border-box;
 }
-
+div{
+  -webkit-app-region: drag;
+  background: white;
+    width: 100%;
+    text-align: center;
+    position: fixed;
+    top: 0px;
+    font-size: 16px;
+    padding: 3px;
+    z-index: 999999;
+    color: #565656;
+}
 #myInput {
-  background-image: url('/css/searchicon.png');
   background-position: 5px 6px;
   background-repeat: no-repeat;
   width: 100%;
   border: none;
+  top: 23px;
+  z-index: 999999;
+  position: fixed;
   background-color: rgb(238, 238, 238);
   border-radius: 3px;
   font-size: 12px;
@@ -22,6 +35,8 @@
 }
 
 #myUL {
+  position: relative;
+  top: 50px;
   list-style-type: none;
   padding: 0;
   margin: 0;
@@ -45,6 +60,8 @@
 <script src="./list.js"></script>
 </head>
 <body  onload="loaditems()">
+
+<div >Clippy</div>
 
 <input type="text" id="myInput" onkeyup="myFunction()" placeholder="Search " title="search">
 

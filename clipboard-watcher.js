@@ -82,7 +82,7 @@ class ClipboardWatcher extends EventEmitter {
 
     this._scrapeClipboard();
 
-    setTimeout(this._watchLoop, 100);
+    setTimeout(this._watchLoop, 500);
   }
 
   _scrapeClipboard() {
