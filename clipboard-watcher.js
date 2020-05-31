@@ -1,11 +1,9 @@
-const {clipboard} =require('electron');
-const EventEmitter =require('events');
-const crypto =require('crypto');
+const { clipboard } = require('electron');
+const EventEmitter = require('events');
+const crypto = require('crypto');
 
 function getHash(data) {
-  return crypto.createHash('sha256')
-    .update(data)
-    .digest('hex');
+  return crypto.createHash('sha256').update(data).digest('hex');
 }
 
 function generateThumb(nativeImageData) {
@@ -13,7 +11,7 @@ function generateThumb(nativeImageData) {
 
   const resizeOptions = {
     width: 70,
-    height: 70
+    height: 70,
   };
 
   if (aspectRatio > 1) {
@@ -28,7 +26,7 @@ function generateThumb(nativeImageData) {
   return {
     thumbWidth: resizeOptions.width,
     thumbHeight: resizeOptions.height,
-    thumbBuffer: thumb.toDataURL()
+    thumbBuffer: thumb.toDataURL(),
   };
 }
 
@@ -36,7 +34,7 @@ function getImageItem(nativeImageData) {
   return {
     type: 'image',
     ...nativeImageData.getSize(),
-    buffer: nativeImageData.toBitmap()
+    buffer: nativeImageData.toBitmap(),
   };
 }
 
@@ -44,7 +42,7 @@ function areItemsEqual(oldItem, newItem) {
   if (oldItem && newItem) {
     if (oldItem.type === newItem.type) {
       if (oldItem.type === 'image') {
-        return (oldItem.buffer.equals(newItem.buffer));
+        return oldItem.buffer.equals(newItem.buffer);
       }
 
       if (oldItem.type === 'text') {
@@ -95,15 +93,17 @@ class ClipboardWatcher extends EventEmitter {
     let newClipItem = {};
     let clipboardImage = null;
 
-    if (availableFormats.find(pattern => pattern.startsWith('image/'))) {
+    if (availableFormats.find((pattern) => pattern.startsWith('image/'))) {
       clipboardImage = clipboard.readImage();
       newClipItem = getImageItem(clipboardImage);
-    } else if (availableFormats.find(pattern => pattern.startsWith('text/'))) {
+    } else if (
+      availableFormats.find((pattern) => pattern.startsWith('text/'))
+    ) {
       newClipItem = {
         type: 'text',
         text: clipboard.readText(),
         html: clipboard.readHTML(),
-        rtf: clipboard.readRTF()
+        rtf: clipboard.readRTF(),
       };
 
       if (!newClipItem.text.trim()) {
@@ -125,7 +125,7 @@ class ClipboardWatcher extends EventEmitter {
 
       this.emit('item', {
         ...newClipItem,
-        buffer: clipboardImage.toDataURL()
+        buffer: clipboardImage.toDataURL(),
       });
     } else {
       newClipItem.hash = getHash(newClipItem.text);
@@ -134,5 +134,4 @@ class ClipboardWatcher extends EventEmitter {
   }
 }
 
-
-module.exports= ClipboardWatcher;
+module.exports = ClipboardWatcher;
