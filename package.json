@@ -20,14 +20,15 @@
     "electron-builder": "^22.4.1"
   },
   "dependencies": {
+    "debounce": "^1.2.0",
     "devtron": "^1.4.0",
-    "standard": "^12.0.1",
     "electron-reload": "^1.2.5",
     "electron-store": "^2.0.0",
     "events": "^3.1.0",
     "global-dispatcher": "^1.0.0",
+    "node-key-sender": "^1.0.11",
     "run-applescript": "^4.0.0",
     "spectre.css": "^0.5.3",
-    "node-key-sender": "^1.0.11"
+    "standard": "^12.0.1"
   }
 }
