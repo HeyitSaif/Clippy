@@ -24,9 +24,7 @@ ipcRenderer.on('clear', (event, item) => {
     element.remove();
   }
 });
-function dbounce() {
-  debounce(myFunction, 800)();
-}
+
 function myFunction() {
   var input, filter, ul, li, a, i, txtValue;
   input = document.getElementById('myInput');
