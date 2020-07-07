@@ -50,7 +50,9 @@ function addElement(element) {
     li.appendChild(img);
     const nativeImage = require('electron').nativeImage;
     li.onclick = () => {
-      clipboard.writeImage(nativeImage.createFromDataURL(element.thumbBuffer));
+      // clipboard.writeImage(nativeImage.createFromDataURL(element.thumbBuffer));
+      let image=nativeImage.createFromDataURL(element.buffer)
+        clipboard.writeImage(image);
     };
     img.id = element.hash;
     img.src = element.thumbBuffer;

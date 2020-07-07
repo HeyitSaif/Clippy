@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const { app, Tray, Menu, globalShortcut, clipboard } = require('electron');
+const { app, Tray, Menu, globalShortcut, clipboard, nativeImage } = require('electron');
 const Window = require('./Window');
 const DataStore = require('./DataStore');
 const ClipboardWatcher = require('./clipboard-watcher.js');
@@ -17,7 +17,7 @@ function main() {
   let mainWindow = new Window({
     file: path.join('renderer', 'list.html'),
   });
-  mainWindow.webContents.openDevTools(); //debugging
+  // mainWindow.webContents.openDevTools(); //debugging
   mainWindow.on('blur', () => {
     if (!dontBlur) mainWindow.hide();
   });
@@ -117,15 +117,18 @@ function main() {
   function trigger_paste(index) {
     let list = items.getall();
     dontSave = true;
-    clipboard.writeText(list[list.length - index].text);
+    let tuple=list[list.length - index]
+    if (tuple.type=='image')
+      clipboard.writeImage(nativeImage.createFromDataURL(tuple.buffer));
+    else
+      clipboard.writeText(tuple.text);
     if (!dontPaste)
       if (process.platform === 'darwin')
         runApplescript(
           'tell application "System Events" to keystroke "v" using command down'
-        )
-          .then()
-          .catch();
-      else ks.sendCombination(['control', 'v']);
+        ).then().catch();
+      else
+        ks.sendCombination(['control', 'v']);
   }
 }
 
