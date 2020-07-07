@@ -16,7 +16,7 @@
   "author": "Saif",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^7.2.4",
+    "electron": "^9.1.0",
     "electron-builder": "^22.4.1"
   },
   "dependencies": {
