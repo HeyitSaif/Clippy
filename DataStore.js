@@ -14,11 +14,12 @@ class DataStore extends Store {
     return this.items;
   }
   clear() {
-    this.set(this.name, []);
+    this.items = []
+    this.set(this.name, this.items);
   }
   saveitems() {
     // save items to JSON file
-    this.set(this.name, this.items);
+    this.set(this.name, this.items.slice(this.items.length-1001,this.items.length-1));
 
     // returning 'this' allows method chaining
     return this;

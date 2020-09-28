@@ -8,24 +8,23 @@ function keydown(evt) {
   if (!evt) evt = event;
   if (evt.metaKey && evt.keyCode == 70) {
     //CMND+F
-    document.getElementById('myInput').focus();
+    // document.getElementById('myInput').focus();
+    $('#myInput').focus();
+
   }
   if (evt.ctrlKey && evt.keyCode == 70) {
     //CTRL+F
-    document.getElementById('myInput').focus();
+    $('#myInput').focus();
   }
 }
 ipcRenderer.on('newItem', (event, item) => {
   addElement(item);
 });
 ipcRenderer.on('clear', (event, item) => {
-  let ul = document.getElementById('myUL');
-  for (element of ul.children) {
-    element.remove();
-  }
+  $('#myUL').empty();
 });
 
-function myFunction() {
+function search() {
   var input, filter, ul, li, a, i, txtValue;
   input = document.getElementById('myInput');
   filter = input.value.toUpperCase();
@@ -33,10 +32,15 @@ function myFunction() {
   li = ul.getElementsByTagName('li');
   for (i = 0; i < li.length; i++) {
     a = li[i].getElementsByTagName('a')[0];
-    txtValue = a.value || a.textContent || a.innerText;
-    if (txtValue.toUpperCase().includes(filter)) {
-      li[i].style.display = 'block';
-    } else {
+    if (a){
+      txtValue = a.value || a.textContent || a.innerText;
+      if (txtValue.toUpperCase().includes(filter)) {
+        li[i].style.display = 'block';
+      } else {
+        li[i].style.display = 'none';
+      }
+    }
+    else {
       li[i].style.display = 'none';
     }
   }
@@ -47,7 +51,10 @@ function addElement(element) {
   let li = document.createElement('li');
   if (element.type != 'text') {
     let img = document.createElement('img');
+    let a = document.createElement('a');
     li.appendChild(img);
+    li.appendChild(a);
+    a.value = "pic";
     const nativeImage = require('electron').nativeImage;
     li.onclick = () => {
       // clipboard.writeImage(nativeImage.createFromDataURL(element.thumbBuffer));
