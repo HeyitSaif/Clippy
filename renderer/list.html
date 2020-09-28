@@ -58,15 +58,15 @@ div{
 }
 </style>
 <script src="./list.js"></script>
+<script>window.$ = window.jQuery = require('./jquery.min.js');</script>
 </head>
 <body  onload="loaditems()">
 
 <div >Clippy</div>
 
-<input type="text" id="myInput" onkeyup="debounce(myFunction, 800)();" placeholder="Search " title="search">
+<input type="text" id="myInput" onkeyup="debounce(search, 800)();" placeholder="Search " title="search">
 
-<ul id="myUL" type="1" >
-</ul>
+<ul id="myUL" type="1" ></ul>
 
 
 
