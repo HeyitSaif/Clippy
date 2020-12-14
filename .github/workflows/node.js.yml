@@ -37,8 +37,7 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             Changes in this Release
-            - First Change
-            - Second Change
+            - added release workflow
           draft: false
           prerelease: false
     - name: run dist
