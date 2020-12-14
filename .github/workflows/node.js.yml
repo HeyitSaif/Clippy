@@ -17,7 +17,7 @@ jobs:
         
       matrix:
         node-version: [12.x]
-        os: [macos-latest, ubuntu-latest, ubuntu-latest]
+        os: [macos-latest]
 
     steps:
     - uses: actions/checkout@v2
@@ -34,8 +34,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
       with:
-        tag_name: '${{ github.ref }}:${{ matrix.os }}'
-        release_name: Release '${{ github.ref }}:${{ matrix.os }}'
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
         body: |
           Changes in this Release
           - added release workflow
