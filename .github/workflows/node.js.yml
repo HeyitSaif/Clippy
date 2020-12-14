@@ -27,17 +27,18 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - name: Install dependencies
       run: npm install
+    - name: run dist
+      run: npm run dist
     - name: Create Release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        tag_name: `${{ github.ref }}:${{ matrix.os }}`
+        release_name: Release `${{ github.ref }}:${{ matrix.os }}`
         body: |
           Changes in this Release
           - added release workflow
         draft: false
         prerelease: false
-    - name: run dist
-      run: npm run dist
+
