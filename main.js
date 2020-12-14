@@ -36,7 +36,7 @@ function main() {
     clipboardWatcher.startListening();
   });
 
-  tray = new Tray(path.join(__dirname, '/img/organize.png'));
+  tray = new Tray(path.join(__dirname, '/img/icon.png'));
   tray.setToolTip('Click to open clippy!');
   tray.on('click', () => {
     if (!mainWindow.isVisible()) {
