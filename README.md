@@ -28,3 +28,4 @@ So,
 - Auto Launch on startup
 
                          Any suggestion hit me up or create a pull request if you want in on fun!
+.
