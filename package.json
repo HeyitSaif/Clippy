@@ -1,7 +1,7 @@
 {
   "name": "clippy",
   "version": "2.0.0",
-  "description": "A modern clipboard manager for macOS",
+  "description": "A modern cross-platform clipboard manager for macOS, Windows, and Linux",
   "main": "./out/main/index.js",
   "author": "Saif",
   "license": "GPL-3.0-or-later",
@@ -12,7 +12,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "postinstall": "electron-builder install-app-deps",
     "dist": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
     "dist:dir": "npm run build && electron-builder --mac --dir",
+    "dist:dir:win": "npm run build && electron-builder --win --dir",
+    "dist:dir:linux": "npm run build && electron-builder --linux --dir",
     "dist:publish": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
@@ -66,6 +71,20 @@
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "maintainer": "Saif"
     },
     "publish": {
       "provider": "github",

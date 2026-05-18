@@ -33,7 +33,7 @@ export function SettingsModal({
     requesting,
     requestAccess,
   } = useAccessibility();
-  const { pasteSlotLabel, isMac } = usePlatform();
+  const { pasteSlotLabel, isMac, platform } = usePlatform();
 
   const ignoreValue = ignoreDraft ?? settings?.ignorePatterns.join("\n") ?? "";
 
@@ -65,7 +65,7 @@ export function SettingsModal({
         <div className="settings-body">
           {accessibilityStatus?.supported && (
             <>
-              <SettingRow label="Accessibility">
+              <SettingRow label={platform === "linux" ? "Auto-paste tools" : "Accessibility"}>
                 <div className="flex items-center gap-2">
                   <span
                     className={

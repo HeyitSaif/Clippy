@@ -2,7 +2,21 @@
 
 This document records v1 behavior for migration and reference. v1 source lives in [`legacy/v1/`](../legacy/v1/).
 
-## macOS data paths
+## Data paths
+
+Electron `userData` / `electron-store` paths depend on the host OS. v1 used the product name **`electron-clippy`**.
+
+| Resource | macOS | Windows | Linux |
+|----------|-------|---------|-------|
+| v1 electron-store config | `~/Library/Application Support/electron-clippy/config.json` | `%APPDATA%\electron-clippy\config.json` | `~/.config/electron-clippy/config.json` |
+| Store key | `Items Main` (array of clip objects) | same | same |
+| v2 SQLite DB | `~/Library/Application Support/clippy/clippy.db` | `%APPDATA%\clippy\clippy.db` | `~/.config/clippy/clippy.db` |
+| v2 image files | `…/clippy/images/` | `…\clippy\images\` | `…/clippy/images/` |
+| v2 thumbnails | `…/clippy/thumbs/` | `…\clippy\thumbs\` | `…/clippy/thumbs/` |
+
+v2 imports v1 data once on first launch if the legacy config file exists (`importLegacyV1` in `src/main/db/database.ts`).
+
+## macOS data paths (legacy table)
 
 | Resource | Path |
 |----------|------|
@@ -43,7 +57,7 @@ This document records v1 behavior for migration and reference. v1 source lives i
 ## v1 behavior summary
 
 - Polls clipboard every 500ms
-- Global shortcuts: `Alt+Space` toggle, `Cmd/Ctrl+1..5` paste recent slots
+- Global shortcuts: `Alt+Space` toggle; paste slots (v1 used `Cmd/Ctrl+1..5`; v2 uses platform-specific slot shortcuts — see [PLATFORMS.md](PLATFORMS.md))
 - Tray: auto-paste toggle, clear history, don't-hide-on-blur, exit
 - Auto-paste on macOS via AppleScript Cmd+V
 - History cap intended at ~1000 items (buggy slice in `saveitems()`)
