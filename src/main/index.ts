@@ -5,6 +5,7 @@ import { createDatabase, importLegacyV1 } from './db/database'
 import { ClipboardService } from './services/clipboard-service'
 import { PasteService } from './services/paste-service'
 import { AccessibilityService } from './services/accessibility-service'
+import { FocusService } from './services/focus-service'
 import { HotkeyService } from './services/hotkey-service'
 import { createMainWindow, TrayService } from './window/main-window'
 import { registerIpcHandlers, notifyClipAdded, notifyWindowFocused, notifyAccessibilityRequired } from './ipc/handlers'
@@ -24,26 +25,44 @@ let settings: AppSettings = settingsRepo.getAll()
 
 const clipboardService = new ClipboardService(clipRepo, () => settings)
 const accessibilityService = new AccessibilityService()
+const focusService = new FocusService()
 const pasteService = new PasteService(
   () => mainWindow,
   accessibilityService,
+  focusService,
   () => notifyAccessibilityRequired()
 )
+
+async function showClippyWindow(): Promise<void> {
+  if (!mainWindow) return
+  if (!mainWindow.isVisible()) {
+    await focusService.captureFrontmostApp()
+  }
+  if (process.platform === 'darwin') app.show()
+  mainWindow.show()
+  mainWindow.focus()
+  notifyWindowFocused()
+}
+
+function hideClippyWindow(): void {
+  mainWindow?.hide()
+  if (process.platform === 'darwin') app.hide()
+}
 
 const hotkeyService = new HotkeyService(
   () => settings,
   () => {
     if (!mainWindow) return
     if (mainWindow.isVisible()) {
-      mainWindow.hide()
+      hideClippyWindow()
     } else {
-      if (process.platform === 'darwin') app.show()
-      mainWindow.show()
-      mainWindow.focus()
-      notifyWindowFocused()
+      void showClippyWindow()
     }
   },
   async (slot) => {
+    if (!mainWindow?.isVisible()) {
+      await focusService.captureFrontmostApp()
+    }
     const clips = clipRepo.list(9, 0)
     const item = clips[slot - 1]
     if (!item) {
@@ -53,7 +72,7 @@ const hotkeyService = new HotkeyService(
     log.info(`Paste slot ${slot} triggered for clip ${item.id}`)
     const result = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(item.id),
-      true
+      { autoPaste: true, hideAfterPaste: true }
     )
     if (!result.ok) {
       log.warn(`Paste slot ${slot} failed — reason=${result.reason}`)
@@ -89,7 +108,8 @@ trayService = new TrayService(
     clipRepo.clearUnpinned()
     notifyClipAdded('')
   },
-  () => app.quit()
+  () => app.quit(),
+  () => showClippyWindow()
 )
 
 registerIpcHandlers({
@@ -98,7 +118,9 @@ registerIpcHandlers({
   clipboardService,
   pasteService,
   accessibilityService,
-  onSettingsUpdated
+  onSettingsUpdated,
+  showClippyWindow,
+  hideClippyWindow
 })
 
 function createWindow(): void {
@@ -149,12 +171,12 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
-    else mainWindow?.show()
+    else void showClippyWindow()
   })
 })
 
 app.on('second-instance', () => {
-  mainWindow?.show()
+  void showClippyWindow()
 })
 
 app.on('will-quit', () => {

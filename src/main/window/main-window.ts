@@ -48,7 +48,8 @@ export class TrayService {
     private getSettings: () => AppSettings,
     private onSettingsChange: (partial: Partial<AppSettings>) => void,
     private onClear: () => void,
-    private onQuit: () => void
+    private onQuit: () => void,
+    private showWindow: () => void | Promise<void>
   ) { }
 
   create(): void {
@@ -65,9 +66,7 @@ export class TrayService {
           win.hide()
           if (process.platform === 'darwin') app.hide()
         } else {
-          if (process.platform === 'darwin') app.show()
-          win.show()
-          win.focus()
+          void this.showWindow()
         }
       })
 
@@ -94,9 +93,7 @@ export class TrayService {
       {
         label: 'Show Clippy',
         click: () => {
-          const win = this.getWindow()
-          win?.show()
-          win?.focus()
+          void this.showWindow()
         }
       },
       { type: 'separator' },

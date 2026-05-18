@@ -160,8 +160,10 @@ const ClipRow = memo(function ClipRow({
       role="option"
       aria-selected={selected}
       tabIndex={0}
-      onClick={() => onSelect(clip.id)}
-      onDoubleClick={() => void onPaste(clip.id)}
+      onClick={() => {
+        onSelect(clip.id);
+        void onPaste(clip.id);
+      }}
       className={cn(
         "clip-row group",
         isImage && "clip-row-image",

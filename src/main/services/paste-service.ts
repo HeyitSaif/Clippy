@@ -2,8 +2,9 @@ import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
 import { runAppleScript } from 'run-applescript'
 import type { AccessibilityService } from './accessibility-service'
+import type { FocusService } from './focus-service'
 
-const FOCUS_DELAY_MS = 130
+const FOCUS_DELAY_MS = 150
 const CLIPBOARD_DELAY_MS = 40
 
 function sleep(ms: number): Promise<void> {
@@ -14,22 +15,32 @@ export type PasteFailureReason = 'accessibility' | 'paste'
 
 export type PasteResult = { ok: true } | { ok: false; reason: PasteFailureReason }
 
+export interface PasteOptions {
+  autoPaste: boolean
+  /** Hide Clippy after pasting. When false, panel stays open but paste goes to the prior app. */
+  hideAfterPaste?: boolean
+}
+
 export class PasteService {
   constructor(
     private getWindow: () => BrowserWindow | null,
     private accessibility: AccessibilityService,
+    private focus: FocusService,
     private onAccessibilityRequired?: () => void
   ) { }
 
-  private async releaseFocus(): Promise<void> {
-    const win = this.getWindow()
-    if (win?.isVisible()) win.hide()
-    if (process.platform === 'darwin') app.hide()
-    await sleep(FOCUS_DELAY_MS)
-  }
-
   private notifyAccessibilityRequired(): void {
     this.onAccessibilityRequired?.()
+  }
+
+  private async prepareExternalPaste(hideWindow: boolean): Promise<void> {
+    if (hideWindow) {
+      const win = this.getWindow()
+      if (win?.isVisible()) win.hide()
+      if (process.platform === 'darwin') app.hide()
+    }
+    await this.focus.activatePreviousApp()
+    await sleep(FOCUS_DELAY_MS)
   }
 
   async paste(): Promise<PasteResult> {
@@ -55,10 +66,13 @@ export class PasteService {
     }
   }
 
-  async writeAndAutoPaste(writeToClipboard: () => boolean, autoPaste: boolean): Promise<PasteResult> {
+  async writeAndAutoPaste(
+    writeToClipboard: () => boolean,
+    options: PasteOptions
+  ): Promise<PasteResult> {
     const written = writeToClipboard()
     if (!written) return { ok: false, reason: 'paste' }
-    if (!autoPaste) return { ok: true }
+    if (!options.autoPaste) return { ok: true }
 
     if (process.platform === 'darwin' && !this.accessibility.isGranted()) {
       log.error('Auto-paste requires Accessibility permission for Clippy')
@@ -68,7 +82,7 @@ export class PasteService {
     }
 
     await sleep(CLIPBOARD_DELAY_MS)
-    await this.releaseFocus()
+    await this.prepareExternalPaste(options.hideAfterPaste ?? true)
     return this.paste()
   }
 }

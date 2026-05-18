@@ -24,8 +24,19 @@ export function registerIpcHandlers(deps: {
   pasteService: PasteService
   accessibilityService: AccessibilityService
   onSettingsUpdated: (settings: AppSettings) => { ok: boolean; error?: string }
+  showClippyWindow: () => Promise<void>
+  hideClippyWindow: () => void
 }): void {
-  const { clipRepo, settingsRepo, clipboardService, pasteService, accessibilityService, onSettingsUpdated } = deps
+  const {
+    clipRepo,
+    settingsRepo,
+    clipboardService,
+    pasteService,
+    accessibilityService,
+    onSettingsUpdated,
+    showClippyWindow,
+    hideClippyWindow
+  } = deps
 
   ipcMain.handle(IPC.CLIPS_LIST, (_e, limit?: number, offset?: number) => {
     return clipRepo.list(limit ?? 50, offset ?? 0)
@@ -65,7 +76,7 @@ export function registerIpcHandlers(deps: {
     const current = settingsRepo.getAll()
     const result = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(id),
-      current.autoPaste
+      { autoPaste: true, hideAfterPaste: current.hideOnBlur }
     )
     return result.ok
   })
@@ -156,7 +167,7 @@ export function registerIpcHandlers(deps: {
     if (!item) return false
     const result = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(item.id),
-      true
+      { autoPaste: true, hideAfterPaste: true }
     )
     return result.ok
   })
@@ -179,22 +190,18 @@ export function registerIpcHandlers(deps: {
   })
 
   ipcMain.handle(IPC.WINDOW_HIDE, () => {
-    getMainWindow()?.hide()
+    hideClippyWindow()
   })
 
-  ipcMain.handle(IPC.WINDOW_SHOW, () => {
-    getMainWindow()?.show()
+  ipcMain.handle(IPC.WINDOW_SHOW, async () => {
+    await showClippyWindow()
   })
 
-  ipcMain.handle(IPC.WINDOW_TOGGLE, () => {
+  ipcMain.handle(IPC.WINDOW_TOGGLE, async () => {
     const win = getMainWindow()
     if (!win) return
-    if (win.isVisible()) win.hide()
-    else {
-      win.show()
-      win.focus()
-      notifyWindowFocused()
-    }
+    if (win.isVisible()) hideClippyWindow()
+    else await showClippyWindow()
   })
 
   ipcMain.handle(IPC.APP_GET_VERSION, () => app.getVersion())
