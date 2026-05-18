@@ -1,5 +1,6 @@
 import { globalShortcut } from 'electron'
 import log from 'electron-log'
+import { pasteSlotAccelerator } from '@shared/hotkey'
 import type { AppSettings } from '@shared/types'
 
 export interface HotkeyRegisterResult {
@@ -36,13 +37,14 @@ export class HotkeyService {
     }
 
     for (let i = 1; i <= 9; i++) {
-      const accel = `CommandOrControl+${i}`
+      const accel = pasteSlotAccelerator(i)
       try {
         const ok = globalShortcut.register(accel, () => this.onPasteSlot(i))
-        if (ok) {
+        const registered = globalShortcut.isRegistered(accel)
+        if (ok && registered) {
           log.info(`Registered paste slot shortcut ${accel}`)
         } else {
-          log.warn(`Failed to register paste slot shortcut ${accel}`)
+          log.warn(`Paste slot shortcut unavailable ${accel} (ok=${ok}, isRegistered=${registered})`)
         }
       } catch (err) {
         log.error(`Failed to register ${accel}`, err)

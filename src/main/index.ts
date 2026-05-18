@@ -40,11 +40,18 @@ const hotkeyService = new HotkeyService(
   async (slot) => {
     const clips = clipRepo.list(9, 0)
     const item = clips[slot - 1]
-    if (!item) return
-    await pasteService.writeAndAutoPaste(
+    if (!item) {
+      log.warn(`Paste slot ${slot} empty — no clip at that position`)
+      return
+    }
+    log.info(`Paste slot ${slot} triggered for clip ${item.id}`)
+    const ok = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(item.id),
-      settings.autoPaste
+      true
     )
+    if (!ok) {
+      log.warn(`Paste slot ${slot} failed — check Accessibility permission`)
+    }
   }
 )
 

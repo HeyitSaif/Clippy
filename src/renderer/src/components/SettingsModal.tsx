@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { PASTE_SLOT_DISPLAY } from "@shared/hotkey";
 import type { AppSettings } from "@shared/types";
 import { HotkeyRecorder } from "./HotkeyRecorder";
 import { IconX } from "./icons";
@@ -61,8 +62,9 @@ export function SettingsModal({
             />
           </SettingRow>
           <p className="settings-hint px-0.5 pb-1">
-            ⌘1–⌘9 paste slots. Requires Accessibility in System Settings →
-            Privacy.
+            {PASTE_SLOT_DISPLAY} global paste slots. ⌘⌥+numbers are unreliable
+            on macOS — Clippy uses ⌘⌃ instead. Requires Accessibility
+            permission.
           </p>
           <SettingRow label="Hide on blur">
             <MiniToggle

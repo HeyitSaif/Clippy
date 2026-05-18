@@ -24,6 +24,13 @@ const KEY_ALIASES: Record<string, string> = {
   Slash: '/'
 }
 
+/** macOS: ⌘⌥+digit registers but often never fires (Chromium/OS). ⌘⌃+digit is reliable. */
+export function pasteSlotAccelerator(slot: number): string {
+  return `Command+Control+${slot}`
+}
+
+export const PASTE_SLOT_DISPLAY = '⌘⌃1-9'
+
 export function keyEventToAccelerator(event: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null
 

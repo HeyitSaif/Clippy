@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PASTE_SLOT_DISPLAY } from "@shared/hotkey";
 import { cn } from "./lib/utils";
 import { ClipboardTab } from "./tabs/ClipboardTab";
 import { TodoTab } from "./tabs/TodoTab";
@@ -64,7 +65,7 @@ export default function App() {
               <span className="hint-kbd">⌘K</span> search
             </span>
             <span>
-              <span className="hint-kbd">⌘1-9</span> paste
+              <span className="hint-kbd">{PASTE_SLOT_DISPLAY}</span> paste
             </span>
             <span>
               <span className="hint-kbd">⌘⌫</span> del
