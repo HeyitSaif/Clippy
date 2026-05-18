@@ -37,6 +37,11 @@ export interface SettingsUpdateResult {
   hotkeyError?: string
 }
 
+export interface AccessibilityStatus {
+  supported: boolean
+  granted: boolean
+}
+
 export interface AppSettings {
   autoPaste: boolean
   hideOnBlur: boolean

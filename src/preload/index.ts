@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, IPC_EVENTS } from '@shared/ipc-channels'
-import type { AppSettings, ClipListItem, ClipRecord, ClipSearchQuery, SettingsUpdateResult } from '@shared/types'
+import type { AppSettings, ClipListItem, ClipRecord, ClipSearchQuery, SettingsUpdateResult, AccessibilityStatus } from '@shared/types'
 
 const api = {
   listClips: (limit?: number, offset?: number): Promise<ClipListItem[]> =>
@@ -32,6 +32,15 @@ const api = {
   showWindow: (): Promise<void> => ipcRenderer.invoke(IPC.WINDOW_SHOW),
   toggleWindow: (): Promise<void> => ipcRenderer.invoke(IPC.WINDOW_TOGGLE),
   getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.APP_GET_VERSION),
+  getAccessibilityStatus: (): Promise<AccessibilityStatus> =>
+    ipcRenderer.invoke(IPC.ACCESSIBILITY_GET_STATUS),
+  requestAccessibility: (): Promise<AccessibilityStatus> =>
+    ipcRenderer.invoke(IPC.ACCESSIBILITY_REQUEST),
+  onAccessibilityRequired: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on(IPC_EVENTS.ACCESSIBILITY_REQUIRED, handler)
+    return () => ipcRenderer.removeListener(IPC_EVENTS.ACCESSIBILITY_REQUIRED, handler)
+  },
   onClipsUpdated: (cb: () => void): (() => void) => {
     const handler = (): void => cb()
     ipcRenderer.on(IPC_EVENTS.CLIPS_UPDATED, handler)

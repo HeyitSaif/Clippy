@@ -1,6 +1,7 @@
-import { app, BrowserWindow, systemPreferences } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
 import { runAppleScript } from 'run-applescript'
+import type { AccessibilityService } from './accessibility-service'
 
 const FOCUS_DELAY_MS = 130
 const CLIPBOARD_DELAY_MS = 40
@@ -11,13 +12,14 @@ function sleep(ms: number): Promise<void> {
 
 export type PasteFailureReason = 'accessibility' | 'paste'
 
-export class PasteService {
-  constructor(private getWindow: () => BrowserWindow | null) { }
+export type PasteResult = { ok: true } | { ok: false; reason: PasteFailureReason }
 
-  hasAccessibilityAccess(prompt = false): boolean {
-    if (process.platform !== 'darwin') return true
-    return systemPreferences.isTrustedAccessibilityClient(prompt)
-  }
+export class PasteService {
+  constructor(
+    private getWindow: () => BrowserWindow | null,
+    private accessibility: AccessibilityService,
+    private onAccessibilityRequired?: () => void
+  ) { }
 
   private async releaseFocus(): Promise<void> {
     const win = this.getWindow()
@@ -26,38 +28,43 @@ export class PasteService {
     await sleep(FOCUS_DELAY_MS)
   }
 
-  async paste(): Promise<boolean> {
+  private notifyAccessibilityRequired(): void {
+    this.onAccessibilityRequired?.()
+  }
+
+  async paste(): Promise<PasteResult> {
     if (process.platform !== 'darwin') {
       log.warn('Auto-paste is macOS-only in v2')
-      return false
+      return { ok: false, reason: 'paste' }
     }
 
-    if (!this.hasAccessibilityAccess(false)) {
+    if (!this.accessibility.isGranted()) {
       log.error('Auto-paste blocked — enable Clippy in System Settings → Privacy → Accessibility')
-      return false
+      this.notifyAccessibilityRequired()
+      return { ok: false, reason: 'accessibility' }
     }
 
     try {
-      // key code 9 = physical V key — works across keyboard layouts
       await runAppleScript(
         'tell application "System Events" to key code 9 using command down'
       )
-      return true
+      return { ok: true }
     } catch (err) {
       log.error('Auto-paste failed — grant Accessibility permission in System Settings', err)
-      return false
+      return { ok: false, reason: 'paste' }
     }
   }
 
-  async writeAndAutoPaste(writeToClipboard: () => boolean, autoPaste: boolean): Promise<boolean> {
+  async writeAndAutoPaste(writeToClipboard: () => boolean, autoPaste: boolean): Promise<PasteResult> {
     const written = writeToClipboard()
-    if (!written) return false
-    if (!autoPaste) return true
+    if (!written) return { ok: false, reason: 'paste' }
+    if (!autoPaste) return { ok: true }
 
-    if (process.platform === 'darwin' && !this.hasAccessibilityAccess(false)) {
+    if (process.platform === 'darwin' && !this.accessibility.isGranted()) {
       log.error('Auto-paste requires Accessibility permission for Clippy')
-      this.hasAccessibilityAccess(true)
-      return false
+      this.accessibility.requestAccess()
+      this.notifyAccessibilityRequired()
+      return { ok: false, reason: 'accessibility' }
     }
 
     await sleep(CLIPBOARD_DELAY_MS)

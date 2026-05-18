@@ -21,12 +21,15 @@ export const IPC = {
   WINDOW_HIDE: 'window:hide',
   WINDOW_SHOW: 'window:show',
   WINDOW_TOGGLE: 'window:toggle',
-  APP_GET_VERSION: 'app:get-version'
+  APP_GET_VERSION: 'app:get-version',
+  ACCESSIBILITY_GET_STATUS: 'accessibility:get-status',
+  ACCESSIBILITY_REQUEST: 'accessibility:request'
 } as const
 
 export const IPC_EVENTS = {
   CLIPS_UPDATED: 'clips:updated',
   CLIP_ADDED: 'clip:added',
   SETTINGS_CHANGED: 'settings:changed',
-  WINDOW_FOCUSED: 'window:focused'
+  WINDOW_FOCUSED: 'window:focused',
+  ACCESSIBILITY_REQUIRED: 'accessibility:required'
 } as const

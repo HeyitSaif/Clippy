@@ -735,6 +735,71 @@ body {
   color: var(--text-tertiary);
 }
 
+.accessibility-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 8px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 12%, var(--glass-bg-inset));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.accessibility-banner-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.accessibility-banner-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.accessibility-banner-desc {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.accessibility-banner-btn,
+.settings-action-btn {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.accessibility-banner-btn:disabled,
+.settings-action-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.accessibility-pill {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.accessibility-pill-warn {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #b45309;
+}
+
+.accessibility-pill-ok {
+  background: color-mix(in srgb, #22c55e 18%, transparent);
+  color: #15803d;
+}
+
 /* Mini toggle */
 .mini-toggle {
   position: relative;

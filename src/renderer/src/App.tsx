@@ -5,6 +5,8 @@ import { ClipboardTab } from "./tabs/ClipboardTab";
 import { TodoTab } from "./tabs/TodoTab";
 import { SettingsModal } from "./components/SettingsModal";
 import { useSettings } from "./hooks/useClips";
+import { useAccessibility } from "./hooks/useAccessibility";
+import { AccessibilityBanner } from "./components/AccessibilityBanner";
 import { IconSettings } from "./components/icons";
 
 type Tab = "clipboard" | "todo";
@@ -18,6 +20,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("clipboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { settings, update, hotkeyError } = useSettings();
+  const { needsAccess, requesting, requestAccess } = useAccessibility();
 
   return (
     <div className="app-backdrop">
@@ -50,6 +53,12 @@ export default function App() {
         </header>
 
         <main className="relative flex min-h-0 flex-1 flex-col">
+          {needsAccess && (
+            <AccessibilityBanner
+              requesting={requesting}
+              onEnable={requestAccess}
+            />
+          )}
           {tab === "clipboard" ? <ClipboardTab /> : <TodoTab />}
         </main>
 

@@ -4,6 +4,7 @@ import { IPC, IPC_EVENTS } from '@shared/ipc-channels'
 import type { ClipRepository, SettingsRepository } from '../db/database'
 import type { ClipboardService } from '../services/clipboard-service'
 import type { PasteService } from '../services/paste-service'
+import type { AccessibilityService } from '../services/accessibility-service'
 import type { AppSettings, ClipSearchQuery, ExportPayload, SettingsUpdateResult } from '@shared/types'
 
 function getMainWindow(): BrowserWindow | null {
@@ -21,9 +22,10 @@ export function registerIpcHandlers(deps: {
   settingsRepo: SettingsRepository
   clipboardService: ClipboardService
   pasteService: PasteService
+  accessibilityService: AccessibilityService
   onSettingsUpdated: (settings: AppSettings) => { ok: boolean; error?: string }
 }): void {
-  const { clipRepo, settingsRepo, clipboardService, pasteService, onSettingsUpdated } = deps
+  const { clipRepo, settingsRepo, clipboardService, pasteService, accessibilityService, onSettingsUpdated } = deps
 
   ipcMain.handle(IPC.CLIPS_LIST, (_e, limit?: number, offset?: number) => {
     return clipRepo.list(limit ?? 50, offset ?? 0)
@@ -61,10 +63,11 @@ export function registerIpcHandlers(deps: {
 
   ipcMain.handle(IPC.CLIPS_PASTE, async (_e, id: string) => {
     const current = settingsRepo.getAll()
-    return pasteService.writeAndAutoPaste(
+    const result = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(id),
       current.autoPaste
     )
+    return result.ok
   })
 
   ipcMain.handle(IPC.CLIPS_DELETE, (_e, id: string) => {
@@ -151,11 +154,19 @@ export function registerIpcHandlers(deps: {
     const clips = clipRepo.list(9, 0)
     const item = clips[slot - 1]
     if (!item) return false
-    const current = settingsRepo.getAll()
-    return pasteService.writeAndAutoPaste(
+    const result = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(item.id),
-      current.autoPaste
+      true
     )
+    return result.ok
+  })
+
+  ipcMain.handle(IPC.ACCESSIBILITY_GET_STATUS, () => accessibilityService.getStatus())
+
+  ipcMain.handle(IPC.ACCESSIBILITY_REQUEST, async () => {
+    const status = await accessibilityService.promptForAccess()
+    if (!status.granted) notifyAccessibilityRequired()
+    return status
   })
 
   ipcMain.handle(IPC.SETTINGS_GET, () => settingsRepo.getAll())
@@ -187,6 +198,10 @@ export function registerIpcHandlers(deps: {
   })
 
   ipcMain.handle(IPC.APP_GET_VERSION, () => app.getVersion())
+}
+
+export function notifyAccessibilityRequired(): void {
+  broadcast(IPC_EVENTS.ACCESSIBILITY_REQUIRED)
 }
 
 export function notifyWindowFocused(): void {

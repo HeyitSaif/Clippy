@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { PASTE_SLOT_DISPLAY } from "@shared/hotkey";
 import type { AppSettings } from "@shared/types";
 import { HotkeyRecorder } from "./HotkeyRecorder";
+import { useAccessibility } from "../hooks/useAccessibility";
 import { IconX } from "./icons";
 
 interface SettingsModalProps {
@@ -26,6 +27,12 @@ export function SettingsModal({
   onClear,
 }: SettingsModalProps) {
   const [ignoreDraft, setIgnoreDraft] = useState<string | null>(null);
+  const {
+    status: accessibilityStatus,
+    needsAccess,
+    requesting,
+    requestAccess,
+  } = useAccessibility();
 
   const ignoreValue = ignoreDraft ?? settings?.ignorePatterns.join("\n") ?? "";
 
@@ -55,6 +62,41 @@ export function SettingsModal({
         </div>
 
         <div className="settings-body">
+          {accessibilityStatus?.supported && (
+            <>
+              <SettingRow label="Accessibility">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      needsAccess
+                        ? "accessibility-pill accessibility-pill-warn"
+                        : "accessibility-pill accessibility-pill-ok"
+                    }
+                  >
+                    {needsAccess ? "Required" : "Enabled"}
+                  </span>
+                  {needsAccess && (
+                    <button
+                      type="button"
+                      className="settings-action-btn"
+                      disabled={requesting}
+                      onClick={() => void requestAccess()}
+                    >
+                      {requesting ? "Opening…" : "Open Settings"}
+                    </button>
+                  )}
+                </div>
+              </SettingRow>
+              {needsAccess && (
+                <p className="settings-hint px-0.5 pb-1">
+                  Enable Clippy or Electron (dev) under Privacy &amp; Security →
+                  Accessibility, then return here.
+                </p>
+              )}
+              <div className="settings-divider" />
+            </>
+          )}
+
           <SettingRow label="Auto paste">
             <MiniToggle
               checked={settings.autoPaste}

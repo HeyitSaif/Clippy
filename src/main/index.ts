@@ -4,9 +4,10 @@ import log from 'electron-log'
 import { createDatabase, importLegacyV1 } from './db/database'
 import { ClipboardService } from './services/clipboard-service'
 import { PasteService } from './services/paste-service'
+import { AccessibilityService } from './services/accessibility-service'
 import { HotkeyService } from './services/hotkey-service'
 import { createMainWindow, TrayService } from './window/main-window'
-import { registerIpcHandlers, notifyClipAdded, notifyWindowFocused } from './ipc/handlers'
+import { registerIpcHandlers, notifyClipAdded, notifyWindowFocused, notifyAccessibilityRequired } from './ipc/handlers'
 import type { AppSettings } from '@shared/types'
 
 log.initialize()
@@ -22,7 +23,12 @@ const { clipRepo, settingsRepo } = createDatabase()
 let settings: AppSettings = settingsRepo.getAll()
 
 const clipboardService = new ClipboardService(clipRepo, () => settings)
-const pasteService = new PasteService(() => mainWindow)
+const accessibilityService = new AccessibilityService()
+const pasteService = new PasteService(
+  () => mainWindow,
+  accessibilityService,
+  () => notifyAccessibilityRequired()
+)
 
 const hotkeyService = new HotkeyService(
   () => settings,
@@ -45,12 +51,12 @@ const hotkeyService = new HotkeyService(
       return
     }
     log.info(`Paste slot ${slot} triggered for clip ${item.id}`)
-    const ok = await pasteService.writeAndAutoPaste(
+    const result = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(item.id),
       true
     )
-    if (!ok) {
-      log.warn(`Paste slot ${slot} failed — check Accessibility permission`)
+    if (!result.ok) {
+      log.warn(`Paste slot ${slot} failed — reason=${result.reason}`)
     }
   }
 )
@@ -91,6 +97,7 @@ registerIpcHandlers({
   settingsRepo,
   clipboardService,
   pasteService,
+  accessibilityService,
   onSettingsUpdated
 })
 
@@ -117,6 +124,12 @@ function createWindow(): void {
   mainWindow.webContents.once('dom-ready', () => {
     clipboardService.onClip((clipId) => notifyClipAdded(clipId))
     clipboardService.start()
+
+    if (process.platform === 'darwin' && !accessibilityService.isGranted()) {
+      setTimeout(() => {
+        void accessibilityService.promptForAccess()
+      }, 600)
+    }
   })
 }
 
