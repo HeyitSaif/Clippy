@@ -1,30 +1,95 @@
 {
-  "name": "electron-clippy",
-  "version": "0.1.0",
-  "description": "A Simple clibboard manager inspired by ditto",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder"
-  },
-  "repository": "",
-  "keywords": [
-    "Electron",
-    "clippy",
-    "clibboard"
-  ],
+  "name": "clippy",
+  "version": "2.0.0",
+  "description": "A modern cross-platform clipboard manager for macOS, Windows, and Linux",
+  "main": "./out/main/index.js",
   "author": "Saif",
-  "license": "MIT",
-  "devDependencies": {
-    "electron": "^9.1.0",
-    "electron-builder": "^22.7.0",
-    "devtron": "^1.4.0",
-    "electron-reload": "^1.2.5"
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "postinstall": "electron-builder install-app-deps",
+    "dist": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:dir": "npm run build && electron-builder --mac --dir",
+    "dist:dir:win": "npm run build && electron-builder --win --dir",
+    "dist:dir:linux": "npm run build && electron-builder --linux --dir",
+    "dist:publish": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
-    "debounce": "^1.2.0",
-    "electron-store": "^2.0.0",
-    "node-key-sender": "^1.0.11",
-    "run-applescript": "^4.0.0"
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@tanstack/react-virtual": "^3.13.24",
+    "better-sqlite3": "^12.10.0",
+    "clsx": "^2.1.1",
+    "electron-log": "^5.4.4",
+    "run-applescript": "^7.0.0",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "electron": "^41.6.1",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^6.0.0-beta.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.13"
+  },
+  "build": {
+    "appId": "com.clippy.app",
+    "productName": "Clippy",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "maintainer": "Saif"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "HeyitSaif",
+      "repo": "Clippy"
+    }
   }
 }

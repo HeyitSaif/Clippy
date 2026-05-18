@@ -72,6 +72,9 @@ typings/
 .env
 .env.test
 
+# Local MCP config (may contain API tokens)
+.tmp-mcp.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 
@@ -80,6 +83,9 @@ typings/
 
 # Nuxt.js build / generate output
 .nuxt
+out
+release
+*.tsbuildinfo
 dist
 
 # Gatsby files
