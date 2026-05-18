@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "postinstall": "electron-builder install-app-deps",
     "dist": "npm run build && electron-builder --mac",
-    "dist:dir": "npm run build && electron-builder --mac --dir"
+    "dist:dir": "npm run build && electron-builder --mac --dir",
+    "dist:publish": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -65,6 +66,11 @@
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "HeyitSaif",
+      "repo": "Clippy"
     }
   }
 }
