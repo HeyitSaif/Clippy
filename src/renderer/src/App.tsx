@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { PASTE_SLOT_DISPLAY } from "@shared/hotkey";
 import { cn } from "./lib/utils";
 import { ClipboardTab } from "./tabs/ClipboardTab";
 import { TodoTab } from "./tabs/TodoTab";
 import { SettingsModal } from "./components/SettingsModal";
 import { useSettings } from "./hooks/useClips";
 import { useAccessibility } from "./hooks/useAccessibility";
+import { usePlatform } from "./hooks/usePlatform";
 import { AccessibilityBanner } from "./components/AccessibilityBanner";
 import { IconSettings } from "./components/icons";
 
@@ -20,7 +20,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("clipboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { settings, update, hotkeyError } = useSettings();
-  const { needsAccess, requesting, requestAccess } = useAccessibility();
+  const { needsAccess, requesting, requestAccess, status } = useAccessibility();
+  const { isMac, pasteSlotLabel } = usePlatform();
 
   return (
     <div className="app-backdrop">
@@ -56,6 +57,8 @@ export default function App() {
           {needsAccess && (
             <AccessibilityBanner
               requesting={requesting}
+              message={status?.message}
+              pasteSlotLabel={pasteSlotLabel}
               onEnable={requestAccess}
             />
           )}
@@ -71,13 +74,13 @@ export default function App() {
               <span className="hint-kbd">↵</span> paste
             </span>
             <span>
-              <span className="hint-kbd">⌘K</span> search
+              <span className="hint-kbd">{isMac ? "⌘K" : "Ctrl+K"}</span> search
             </span>
             <span>
-              <span className="hint-kbd">{PASTE_SLOT_DISPLAY}</span> paste
+              <span className="hint-kbd">{pasteSlotLabel}</span> paste
             </span>
             <span>
-              <span className="hint-kbd">⌘⌫</span> del
+              <span className="hint-kbd">{isMac ? "⌘⌫" : "Del"}</span> del
             </span>
             <span>
               <span className="hint-kbd">esc</span> hide

@@ -180,6 +180,8 @@ export function registerIpcHandlers(deps: {
     return status
   })
 
+  ipcMain.handle(IPC.APP_GET_PLATFORM, () => process.platform)
+
   ipcMain.handle(IPC.SETTINGS_GET, () => settingsRepo.getAll())
 
   ipcMain.handle(IPC.SETTINGS_UPDATE, (_e, partial: Partial<AppSettings>): SettingsUpdateResult => {

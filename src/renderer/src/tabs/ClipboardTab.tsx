@@ -76,7 +76,7 @@ export function ClipboardTab() {
   const handlePaste = useCallback(
     async (id: string) => {
       const ok = await window.clippy.pasteClip(id);
-      show(ok ? "Pasted" : "Paste failed — check Accessibility permission");
+      show(ok ? "Pasted" : "Paste failed — check setup in Settings");
     },
     [show],
   );

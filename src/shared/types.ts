@@ -40,6 +40,7 @@ export interface SettingsUpdateResult {
 export interface AccessibilityStatus {
   supported: boolean
   granted: boolean
+  message?: string
 }
 
 export interface AppSettings {

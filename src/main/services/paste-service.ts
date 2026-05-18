@@ -1,8 +1,8 @@
 import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
-import { runAppleScript } from 'run-applescript'
 import type { AccessibilityService } from './accessibility-service'
 import type { FocusService } from './focus-service'
+import { isLinuxPasteAvailable, simulatePasteShortcut } from '../platform/system-input'
 
 const FOCUS_DELAY_MS = 150
 const CLIPBOARD_DELAY_MS = 40
@@ -17,7 +17,6 @@ export type PasteResult = { ok: true } | { ok: false; reason: PasteFailureReason
 
 export interface PasteOptions {
   autoPaste: boolean
-  /** Hide Clippy after pasting. When false, panel stays open but paste goes to the prior app. */
   hideAfterPaste?: boolean
 }
 
@@ -33,6 +32,16 @@ export class PasteService {
     this.onAccessibilityRequired?.()
   }
 
+  private async canAutoPaste(): Promise<boolean> {
+    if (process.platform === 'darwin') {
+      return this.accessibility.isGranted()
+    }
+    if (process.platform === 'linux') {
+      return isLinuxPasteAvailable()
+    }
+    return true
+  }
+
   private async prepareExternalPaste(hideWindow: boolean): Promise<void> {
     if (hideWindow) {
       const win = this.getWindow()
@@ -44,24 +53,17 @@ export class PasteService {
   }
 
   async paste(): Promise<PasteResult> {
-    if (process.platform !== 'darwin') {
-      log.warn('Auto-paste is macOS-only in v2')
-      return { ok: false, reason: 'paste' }
-    }
-
-    if (!this.accessibility.isGranted()) {
-      log.error('Auto-paste blocked — enable Clippy in System Settings → Privacy → Accessibility')
+    if (!(await this.canAutoPaste())) {
+      log.error('Auto-paste blocked — missing platform permissions or tools')
       this.notifyAccessibilityRequired()
       return { ok: false, reason: 'accessibility' }
     }
 
     try {
-      await runAppleScript(
-        'tell application "System Events" to key code 9 using command down'
-      )
+      await simulatePasteShortcut()
       return { ok: true }
     } catch (err) {
-      log.error('Auto-paste failed — grant Accessibility permission in System Settings', err)
+      log.error('Auto-paste failed', err)
       return { ok: false, reason: 'paste' }
     }
   }
@@ -74,9 +76,10 @@ export class PasteService {
     if (!written) return { ok: false, reason: 'paste' }
     if (!options.autoPaste) return { ok: true }
 
-    if (process.platform === 'darwin' && !this.accessibility.isGranted()) {
-      log.error('Auto-paste requires Accessibility permission for Clippy')
-      this.accessibility.requestAccess()
+    if (!(await this.canAutoPaste())) {
+      if (process.platform === 'darwin') {
+        this.accessibility.requestAccess()
+      }
       this.notifyAccessibilityRequired()
       return { ok: false, reason: 'accessibility' }
     }

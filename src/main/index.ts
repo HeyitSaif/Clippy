@@ -147,11 +147,13 @@ function createWindow(): void {
     clipboardService.onClip((clipId) => notifyClipAdded(clipId))
     clipboardService.start()
 
-    if (process.platform === 'darwin' && !accessibilityService.isGranted()) {
-      setTimeout(() => {
-        void accessibilityService.promptForAccess()
-      }, 600)
-    }
+    void accessibilityService.refresh().then((status) => {
+      if (status.supported && !status.granted) {
+        setTimeout(() => {
+          void accessibilityService.promptForAccess()
+        }, 600)
+      }
+    })
   })
 }
 

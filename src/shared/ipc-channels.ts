@@ -22,6 +22,7 @@ export const IPC = {
   WINDOW_SHOW: 'window:show',
   WINDOW_TOGGLE: 'window:toggle',
   APP_GET_VERSION: 'app:get-version',
+  APP_GET_PLATFORM: 'app:get-platform',
   ACCESSIBILITY_GET_STATUS: 'accessibility:get-status',
   ACCESSIBILITY_REQUEST: 'accessibility:request'
 } as const

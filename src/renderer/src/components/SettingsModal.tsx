@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
-import { PASTE_SLOT_DISPLAY } from "@shared/hotkey";
 import type { AppSettings } from "@shared/types";
 import { HotkeyRecorder } from "./HotkeyRecorder";
 import { useAccessibility } from "../hooks/useAccessibility";
+import { usePlatform } from "../hooks/usePlatform";
 import { IconX } from "./icons";
 
 interface SettingsModalProps {
@@ -33,6 +33,7 @@ export function SettingsModal({
     requesting,
     requestAccess,
   } = useAccessibility();
+  const { pasteSlotLabel, isMac } = usePlatform();
 
   const ignoreValue = ignoreDraft ?? settings?.ignorePatterns.join("\n") ?? "";
 
@@ -87,10 +88,9 @@ export function SettingsModal({
                   )}
                 </div>
               </SettingRow>
-              {needsAccess && (
+              {needsAccess && accessibilityStatus?.message && (
                 <p className="settings-hint px-0.5 pb-1">
-                  Enable Clippy or Electron (dev) under Privacy &amp; Security →
-                  Accessibility, then return here.
+                  {accessibilityStatus.message}
                 </p>
               )}
               <div className="settings-divider" />
@@ -104,9 +104,10 @@ export function SettingsModal({
             />
           </SettingRow>
           <p className="settings-hint px-0.5 pb-1">
-            {PASTE_SLOT_DISPLAY} global paste slots. ⌘⌥+numbers are unreliable
-            on macOS — Clippy uses ⌘⌃ instead. Requires Accessibility
-            permission.
+            {pasteSlotLabel} global paste slots.
+            {isMac
+              ? " macOS uses ⌘⌃ instead of ⌘⌥ for reliable global shortcuts."
+              : " Uses Ctrl+Alt on Windows and Linux."}
           </p>
           <SettingRow label="Hide on blur">
             <MiniToggle

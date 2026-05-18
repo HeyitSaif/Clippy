@@ -32,6 +32,7 @@ const api = {
   showWindow: (): Promise<void> => ipcRenderer.invoke(IPC.WINDOW_SHOW),
   toggleWindow: (): Promise<void> => ipcRenderer.invoke(IPC.WINDOW_TOGGLE),
   getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.APP_GET_VERSION),
+  getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke(IPC.APP_GET_PLATFORM),
   getAccessibilityStatus: (): Promise<AccessibilityStatus> =>
     ipcRenderer.invoke(IPC.ACCESSIBILITY_GET_STATUS),
   requestAccessibility: (): Promise<AccessibilityStatus> =>

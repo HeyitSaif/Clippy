@@ -2,31 +2,13 @@ import { BrowserWindow, Tray, Menu, app } from 'electron'
 import path from 'node:path'
 import log from 'electron-log'
 import type { AppSettings } from '@shared/types'
+import { getMainWindowOptions } from '../platform/window-options'
 import { loadTrayIcon } from './tray-icon'
 
 export function createMainWindow(): BrowserWindow {
-  const win = new BrowserWindow({
-    width: 360,
-    height: 520,
-    minWidth: 320,
-    minHeight: 380,
-    show: false,
-    frame: false,
-    transparent: true,
-    resizable: true,
-    alwaysOnTop: true,
-    skipTaskbar: false,
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
-    backgroundColor: '#00000000',
-    title: 'Clippy',
-    webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  })
+  const win = new BrowserWindow(
+    getMainWindowOptions(path.join(__dirname, '../preload/index.js'))
+  )
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL)

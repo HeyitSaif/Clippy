@@ -1,19 +1,25 @@
 interface AccessibilityBannerProps {
   requesting: boolean;
+  message?: string;
+  pasteSlotLabel: string;
   onEnable: () => void;
 }
 
 export function AccessibilityBanner({
   requesting,
+  message,
+  pasteSlotLabel,
   onEnable,
 }: AccessibilityBannerProps) {
   return (
     <div className="accessibility-banner no-drag">
       <div className="accessibility-banner-text">
-        <p className="accessibility-banner-title">Accessibility required</p>
+        <p className="accessibility-banner-title">
+          Setup required for auto-paste
+        </p>
         <p className="accessibility-banner-desc">
-          Allow Clippy (or Electron in dev) to paste into other apps via ⌘⌃1–9
-          and auto-paste.
+          {message ??
+            `Allow Clippy to paste into other apps via ${pasteSlotLabel} and row clicks.`}
         </p>
       </div>
       <button
@@ -22,7 +28,7 @@ export function AccessibilityBanner({
         disabled={requesting}
         onClick={() => void onEnable()}
       >
-        {requesting ? "Opening…" : "Open Settings"}
+        {requesting ? "Opening…" : "Fix setup"}
       </button>
     </div>
   );

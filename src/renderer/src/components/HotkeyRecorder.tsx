@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  keyEventToAccelerator,
-  formatAcceleratorDisplay,
-} from "@shared/hotkey";
+import { keyEventToAccelerator } from "@shared/hotkey";
+import { usePlatform } from "../hooks/usePlatform";
 import { cn } from "../lib/utils";
 
 interface HotkeyRecorderProps {
@@ -18,6 +16,7 @@ export function HotkeyRecorder({
 }: HotkeyRecorderProps) {
   const [recording, setRecording] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
+  const { formatShortcut } = usePlatform();
 
   const stopRecording = useCallback(() => setRecording(false), []);
 
@@ -62,7 +61,7 @@ export function HotkeyRecorder({
           </span>
         ) : (
           <span className="font-mono text-[12px]">
-            {formatAcceleratorDisplay(value) || value}
+            {formatShortcut(value) || value}
           </span>
         )}
       </button>

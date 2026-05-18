@@ -594,19 +594,27 @@ body {
 
 /* Settings panel */
 .modal-scrim {
-  background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(6px);
 }
 
 .settings-panel {
   width: 240px;
   max-width: 85%;
   height: 100%;
-  background: var(--glass-bg-elevated);
+  background: color-mix(in srgb, var(--glass-bg-elevated) 90%, #ffffff);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
   border-left: 1px solid var(--glass-border-subtle);
   display: flex;
   flex-direction: column;
   animation: slideIn 0.2s var(--ease-out);
+}
+
+@media (prefers-color-scheme: dark) {
+  .settings-panel {
+    background: color-mix(in srgb, var(--glass-bg-elevated) 94%, #1c1c20);
+  }
 }
 
 .settings-header {
@@ -662,7 +670,7 @@ body {
 .hotkey-field {
   border-radius: var(--radius-sm);
   border: 1px solid var(--glass-border-subtle);
-  background: var(--glass-bg-inset);
+  background: color-mix(in srgb, var(--glass-bg-inset) 85%, #fff);
   color: var(--text-primary);
   font-size: 11px;
   outline: none;

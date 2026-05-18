@@ -37,7 +37,7 @@ export class HotkeyService {
     }
 
     for (let i = 1; i <= 9; i++) {
-      const accel = pasteSlotAccelerator(i)
+      const accel = pasteSlotAccelerator(i, process.platform)
       try {
         const ok = globalShortcut.register(accel, () => this.onPasteSlot(i))
         const registered = globalShortcut.isRegistered(accel)
