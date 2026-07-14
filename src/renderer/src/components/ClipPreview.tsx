@@ -37,7 +37,7 @@ export function ClipPreview({ clipId, onClose }: ClipPreviewProps) {
           <IconX size={12} />
         </button>
       </div>
-      <div className="clip-scroll max-h-[200px] overflow-y-auto p-3">
+      <div className="clip-scroll preview-panel-body">
         {clip.type === "image" ? (
           <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--glass-border-subtle)] shadow-md">
             <img

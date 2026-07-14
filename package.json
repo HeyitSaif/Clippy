@@ -24,23 +24,23 @@
     "dist:publish": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.14.6",
     "better-sqlite3": "^12.11.1",
-    "clsx": "^2.1.1",
-    "electron-log": "^5.4.4",
-    "tailwind-merge": "^3.6.0"
+    "electron-log": "^5.4.4"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",
+    "@tanstack/react-virtual": "^3.14.6",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "clsx": "^2.1.1",
     "electron": "^41.10.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0-beta.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
     "vite": "^8.1.4",
@@ -52,18 +52,25 @@
     "directories": {
       "output": "release"
     },
+    "electronLanguages": [
+      "en"
+    ],
     "files": [
       "out/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "!**/node_modules/better-sqlite3/deps{,/**/*}",
+      "!**/node_modules/better-sqlite3/src{,/**/*}",
+      "!**/node_modules/better-sqlite3/build/Release/obj{,/**/*}",
+      "!**/node_modules/better-sqlite3/build/Release/obj.target{,/**/*}",
+      "!**/node_modules/better-sqlite3/build/Release/.deps{,/**/*}",
+      "!**/node_modules/*/{README,CHANGELOG,readme,changelog}*",
+      "!**/node_modules/*/*.md",
+      "!**/node_modules/*/*.map",
+      "!**/node_modules/*/test{,/**/*}",
+      "!**/node_modules/*/tests{,/**/*}"
     ],
     "asarUnpack": [
-      "**/node_modules/better-sqlite3/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "resources",
-        "to": "resources"
-      }
+      "**/node_modules/better-sqlite3/build/Release/*.node"
     ],
     "mac": {
       "category": "public.app-category.productivity",
