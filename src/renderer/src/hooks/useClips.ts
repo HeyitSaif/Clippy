@@ -39,15 +39,30 @@ function applyPinToggle(
 function applySnippetToggle(
   items: ClipListItem[],
   id: string,
-  filter: ClipFilter
+  filter: ClipFilter,
+  snippetName?: string | null
 ): ClipListItem[] {
   const clip = items.find((c) => c.id === id)
   if (!clip) return items
+  // Rename only
+  if (clip.isSnippet && snippetName != null) {
+    return items.map((c) =>
+      c.id === id ? { ...c, snippetName: snippetName || c.snippetName } : c
+    )
+  }
   const isSnippet = !clip.isSnippet
   if (filter === 'snippet' && !isSnippet) {
     return items.filter((c) => c.id !== id)
   }
-  return items.map((c) => (c.id === id ? { ...c, isSnippet } : c))
+  return items.map((c) =>
+    c.id === id
+      ? {
+          ...c,
+          isSnippet,
+          snippetName: isSnippet ? snippetName ?? c.preview.slice(0, 40) : null
+        }
+      : c
+  )
 }
 
 function applyDelete(items: ClipListItem[], id: string): ClipListItem[] {
@@ -182,10 +197,21 @@ export function useClips() {
   )
 
   const toggleSnippet = useCallback(
-    (id: string) =>
+    (id: string, name?: string) =>
       runOptimistic(
-        (prev) => applySnippetToggle(prev, id, filter),
-        () => window.clippy.toggleSnippet(id),
+        (prev) => applySnippetToggle(prev, id, filter, name),
+        () => window.clippy.toggleSnippet(id, name),
+        (r) => r !== null
+      ),
+    [filter, runOptimistic]
+  )
+
+  /** Rename an existing snippet without toggling it off. */
+  const renameSnippet = useCallback(
+    (id: string, name: string) =>
+      runOptimistic(
+        (prev) => applySnippetToggle(prev, id, filter, name),
+        () => window.clippy.toggleSnippet(id, name),
         (r) => r !== null
       ),
     [filter, runOptimistic]
@@ -255,6 +281,7 @@ export function useClips() {
     loadMore,
     togglePin,
     toggleSnippet,
+    renameSnippet,
     deleteClip,
     updateTags
   }

@@ -7,6 +7,7 @@ import { SCHEMA_SQL } from './schema'
 import { TodoRepository } from './todos'
 import type { AppSettings, ClipListItem, ClipRecord, ClipSearchQuery, ClipType } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
+import { defaultSnippetName } from '@shared/clipboard-write'
 import {
   buildFtsQuery,
   buildSearchOrderBy,
@@ -350,11 +351,32 @@ export class ClipRepository {
   toggleSnippet(id: string, snippetName?: string): ClipRecord | null {
     const clip = this.getById(id)
     if (!clip) return null
+
+    // Already a snippet + name provided → rename only (do not toggle off).
+    if (clip.isSnippet && snippetName !== undefined) {
+      const name = defaultSnippetName(clip.preview, snippetName)
+      runWithFtsRecovery(this.db, () => {
+        this.db
+          .prepare(
+            'UPDATE clips SET snippet_name = ?, updated_at = ? WHERE id = ?'
+          )
+          .run(name, Date.now(), id)
+      })
+      return this.getById(id)
+    }
+
     const isSnippet = !clip.isSnippet
     runWithFtsRecovery(this.db, () => {
       this.db
-        .prepare('UPDATE clips SET is_snippet = ?, snippet_name = ?, updated_at = ? WHERE id = ?')
-        .run(isSnippet ? 1 : 0, isSnippet ? snippetName ?? clip.preview.slice(0, 40) : null, Date.now(), id)
+        .prepare(
+          'UPDATE clips SET is_snippet = ?, snippet_name = ?, updated_at = ? WHERE id = ?'
+        )
+        .run(
+          isSnippet ? 1 : 0,
+          isSnippet ? defaultSnippetName(clip.preview, snippetName) : null,
+          Date.now(),
+          id
+        )
     })
     return this.getById(id)!
   }

@@ -38,6 +38,7 @@ export function ClipboardTab() {
     loadMore,
     togglePin,
     toggleSnippet,
+    renameSnippet,
     deleteClip,
     updateTags,
   } = useClips();
@@ -103,11 +104,38 @@ export function ClipboardTab() {
 
   const handleToggleSnippet = useCallback(
     async (id: string) => {
-      const ok = await toggleSnippet(id);
-      if (ok) show("Snippet updated");
+      const clip = clips.find((c) => c.id === id);
+      if (!clip) return;
+      if (clip.isSnippet) {
+        const ok = await toggleSnippet(id);
+        if (ok) show("Snippet removed");
+        else show("Action failed — restart Clippy");
+        return;
+      }
+      const suggested = (clip.snippetName ?? clip.preview).slice(0, 40);
+      const name = window.prompt("Snippet name", suggested);
+      if (name === null) return;
+      const ok = await toggleSnippet(id, name.trim() || suggested);
+      if (ok) show("Saved as snippet");
       else show("Action failed — restart Clippy");
     },
-    [toggleSnippet, show],
+    [clips, toggleSnippet, show],
+  );
+
+  const handleRenameSnippet = useCallback(
+    async (id: string) => {
+      const clip = clips.find((c) => c.id === id);
+      if (!clip?.isSnippet) return;
+      const current = clip.snippetName ?? clip.preview.slice(0, 40);
+      const name = window.prompt("Rename snippet", current);
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const ok = await renameSnippet(id, trimmed);
+      if (ok) show("Snippet renamed");
+      else show("Action failed — restart Clippy");
+    },
+    [clips, renameSnippet, show],
   );
 
   const handleDelete = useCallback(
@@ -366,6 +394,7 @@ export function ClipboardTab() {
           onPaste={handlePaste}
           onTogglePin={handleTogglePin}
           onToggleSnippet={handleToggleSnippet}
+          onRenameSnippet={handleRenameSnippet}
           onCreateTodo={handleCreateTodo}
           onDelete={handleDelete}
           onPreview={setPreviewId}

@@ -28,6 +28,7 @@ interface ClipListProps {
   onPaste: (id: string) => void;
   onTogglePin: (id: string) => void;
   onToggleSnippet: (id: string) => void;
+  onRenameSnippet: (id: string) => void;
   onCreateTodo: (id: string) => void;
   onDelete: (id: string) => void;
   onPreview: (id: string) => void;
@@ -46,6 +47,7 @@ export function ClipList({
   onPaste,
   onTogglePin,
   onToggleSnippet,
+  onRenameSnippet,
   onCreateTodo,
   onDelete,
   onPreview,
@@ -120,6 +122,7 @@ export function ClipList({
                 onPaste={onPaste}
                 onTogglePin={onTogglePin}
                 onToggleSnippet={onToggleSnippet}
+                onRenameSnippet={onRenameSnippet}
                 onCreateTodo={onCreateTodo}
                 onDelete={onDelete}
                 onPreview={onPreview}
@@ -142,6 +145,7 @@ const ClipRow = memo(function ClipRow({
   onPaste,
   onTogglePin,
   onToggleSnippet,
+  onRenameSnippet,
   onCreateTodo,
   onDelete,
   onPreview,
@@ -155,6 +159,7 @@ const ClipRow = memo(function ClipRow({
   onPaste: (id: string) => void;
   onTogglePin: (id: string) => void;
   onToggleSnippet: (id: string) => void;
+  onRenameSnippet: (id: string) => void;
   onCreateTodo: (id: string) => void;
   onDelete: (id: string) => void;
   onPreview: (id: string) => void;
@@ -185,7 +190,22 @@ const ClipRow = memo(function ClipRow({
         {clip.isPinned && (
           <IconPin size={8} className="shrink-0 text-[var(--accent)]" />
         )}
-        {clip.isSnippet && <span className="clip-badge">S</span>}
+        {clip.isSnippet && (
+          <span
+            className="clip-badge"
+            title={
+              clip.snippetName
+                ? `${clip.snippetName} — double-click to rename`
+                : "Snippet — double-click to rename"
+            }
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onRenameSnippet(clip.id);
+            }}
+          >
+            S
+          </span>
+        )}
         {isImage ? (
           thumbSrc ? (
             <img src={thumbSrc} alt="" className="clip-thumb" />

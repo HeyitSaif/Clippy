@@ -15,6 +15,7 @@ import {
   formatsIncludeText,
   formatsKey
 } from '@shared/clipboard-watch'
+import { buildSystemClipboardPayload, defaultSnippetName } from '@shared/clipboard-write'
 
 export interface RawClipItem {
   type: 'text' | 'image' | 'file'
@@ -289,7 +290,13 @@ export class ClipboardService {
     this.skipNextCapture()
 
     if (clip.type === 'text' || clip.type === 'file') {
-      clipboard.writeText(clip.textContent ?? clip.preview)
+      const payload = buildSystemClipboardPayload(clip)
+      if (!payload) return false
+      if (payload.html || payload.rtf) {
+        clipboard.write(payload)
+      } else {
+        clipboard.writeText(payload.text)
+      }
       return true
     }
     if (clip.type === 'image' && clip.imagePath) {
