@@ -9,6 +9,7 @@ import {
   sortTodos,
   type TodoStatusFilter
 } from '@shared/todo-logic'
+import { applyTodoOrder, moveIdInOrder } from '@shared/todo-reorder'
 import { useDebouncedValue } from './useDebouncedValue'
 
 export type TodoFilter = TodoStatusFilter
@@ -278,6 +279,26 @@ export function useTodos() {
     [runOptimistic]
   )
 
+  const moveTodo = useCallback(
+    async (id: string, direction: -1 | 1): Promise<boolean> => {
+      const ordered = moveIdInOrder(
+        todos.map((t) => t.id),
+        id,
+        direction
+      )
+      if (!ordered) return false
+      setTodos((prev) => sortTodos(applyTodoOrder(prev, ordered)))
+      try {
+        await window.clippy.reorderTodos(selectedListId, ordered)
+        return true
+      } catch {
+        await refreshTodos({ silent: true })
+        return false
+      }
+    },
+    [todos, selectedListId, refreshTodos]
+  )
+
   const createList = useCallback(
     async (name: string): Promise<TodoList | null> => {
       const trimmed = name.trim()
@@ -354,6 +375,7 @@ export function useTodos() {
     updateTodo,
     cyclePriority,
     deleteTodo,
+    moveTodo,
     createList,
     renameList,
     deleteList

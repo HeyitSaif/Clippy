@@ -18,17 +18,17 @@ export function nextTodoPriority(p: TodoPriority): TodoPriority {
   return ((p + 1) % 4) as TodoPriority
 }
 
-/** Incomplete first, then higher priority, then earlier due, then sortOrder, then newest. */
+/** Incomplete first, then manual sortOrder, then higher priority, then earlier due, then newest. */
 export function sortTodos(items: TodoItem[]): TodoItem[] {
   return [...items].sort((a, b) => {
     if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
     if (a.priority !== b.priority) return b.priority - a.priority
     if (a.dueAt == null && b.dueAt != null) return 1
     if (a.dueAt != null && b.dueAt == null) return -1
     if (a.dueAt != null && b.dueAt != null && a.dueAt !== b.dueAt) {
       return a.dueAt - b.dueAt
     }
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
     return b.createdAt - a.createdAt
   })
 }

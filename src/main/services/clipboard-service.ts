@@ -15,7 +15,7 @@ import {
   formatsIncludeText,
   formatsKey
 } from '@shared/clipboard-watch'
-import { buildSystemClipboardPayload, defaultSnippetName } from '@shared/clipboard-write'
+import { buildSystemClipboardPayload } from '@shared/clipboard-write'
 
 export interface RawClipItem {
   type: 'text' | 'image' | 'file'

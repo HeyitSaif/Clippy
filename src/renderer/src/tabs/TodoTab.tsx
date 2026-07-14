@@ -102,6 +102,7 @@ export function TodoTab({
     updateTodo,
     cyclePriority,
     deleteTodo,
+    moveTodo,
     createList,
     renameList,
     deleteList,
@@ -260,6 +261,14 @@ export function TodoTab({
     [cyclePriority, show],
   );
 
+  const handleMove = useCallback(
+    async (id: string, direction: -1 | 1) => {
+      const ok = await moveTodo(id, direction);
+      if (!ok) show("Could not reorder");
+    },
+    [moveTodo, show],
+  );
+
   const handleUpdate = useCallback(
     async (id: string, partial: Parameters<typeof updateTodo>[1]) => {
       const ok = await updateTodo(id, partial);
@@ -313,10 +322,18 @@ export function TodoTab({
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        if (e.altKey && selectedIndex >= 0) {
+          void handleMove(todos[selectedIndex].id, 1);
+          return;
+        }
         const next = Math.min(Math.max(selectedIndex, 0) + 1, todos.length - 1);
         setSelectedId(todos[next]?.id ?? null);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        if (e.altKey && selectedIndex >= 0) {
+          void handleMove(todos[selectedIndex].id, -1);
+          return;
+        }
         const next = Math.max(Math.max(selectedIndex, 0) - 1, 0);
         setSelectedId(todos[next]?.id ?? null);
       } else if (e.key === "Enter" && selectedIndex >= 0) {
@@ -352,6 +369,7 @@ export function TodoTab({
     handleToggle,
     handleDelete,
     handleCyclePriority,
+    handleMove,
     editingId,
     addingList,
     renamingListId,
@@ -535,6 +553,7 @@ export function TodoTab({
               onToggle={handleToggle}
               onDelete={handleDelete}
               onCyclePriority={handleCyclePriority}
+              onMove={handleMove}
               onUpdate={handleUpdate}
               onStartEdit={() => setEditingId(todo.id)}
               onEndEdit={() => setEditingId(null)}
@@ -558,6 +577,7 @@ function TodoRow({
   onToggle,
   onDelete,
   onCyclePriority,
+  onMove,
   onUpdate,
   onStartEdit,
   onEndEdit,
@@ -571,6 +591,7 @@ function TodoRow({
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onCyclePriority: (id: string) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
   onUpdate: (
     id: string,
     partial: Parameters<typeof window.clippy.updateTodo>[1],
@@ -787,6 +808,30 @@ function TodoRow({
         </select>
 
         <div className="todo-row-actions no-drag">
+          <button
+            type="button"
+            className="clip-action-btn"
+            aria-label="Move up"
+            title="Move up (⌥↑)"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(todo.id, -1);
+            }}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className="clip-action-btn"
+            aria-label="Move down"
+            title="Move down (⌥↓)"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(todo.id, 1);
+            }}
+          >
+            ↓
+          </button>
           {!editing && (
             <button
               type="button"

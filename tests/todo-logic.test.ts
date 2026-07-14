@@ -63,14 +63,19 @@ describe('sortTodos', () => {
     expect(sorted.map((t) => t.id)).toEqual(['b', 'a'])
   })
 
-  it('orders by priority then due date', () => {
+  it('orders by sortOrder then priority then due date', () => {
     const sorted = sortTodos([
-      todo({ id: 'low', title: 'l', priority: 1, dueAt: 10 }),
-      todo({ id: 'high-late', title: 'h', priority: 3, dueAt: 100 }),
-      todo({ id: 'high-soon', title: 'h', priority: 3, dueAt: 20 }),
-      todo({ id: 'none', title: 'n', priority: 0, dueAt: null })
+      todo({ id: 'low', title: 'l', priority: 1, dueAt: 10, sortOrder: 2 }),
+      todo({ id: 'high-late', title: 'h', priority: 3, dueAt: 100, sortOrder: 1 }),
+      todo({ id: 'high-soon', title: 'h', priority: 3, dueAt: 20, sortOrder: 0 }),
+      todo({ id: 'none', title: 'n', priority: 0, dueAt: null, sortOrder: 3 })
     ])
-    expect(sorted.map((t) => t.id)).toEqual(['high-soon', 'high-late', 'low', 'none'])
+    expect(sorted.map((t) => t.id)).toEqual([
+      'high-soon',
+      'high-late',
+      'low',
+      'none'
+    ])
   })
 })
 

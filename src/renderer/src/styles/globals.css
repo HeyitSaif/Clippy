@@ -208,8 +208,10 @@ body {
 .filter-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 2px 3px;
   margin-top: 4px;
+  row-gap: 3px;
 }
 
 .tag-bar {
@@ -346,7 +348,7 @@ body {
 
 /* Filter chips */
 .filter-chip {
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
@@ -355,6 +357,8 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.12s;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 
 .filter-chip:hover {
