@@ -106,10 +106,14 @@ export interface AppSettings {
   todoShowCompleted: boolean;
   /** Fire system notifications for todo reminders (default true). */
   todoRemindersEnabled: boolean;
+  /** Play notification sound with reminders (default false). */
+  todoReminderSound: boolean;
   /** Auto-rotate Daily/Weekly lists at the configured hour (default true). */
   todoRotateEnabled: boolean;
   /** Local hour 0–23 when daily/weekly rotation runs (default 0 = midnight). */
   todoRotateHour: number;
+  /** Default list id for new todos and clip→todo (Inbox by default). */
+  todoDefaultListId: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -125,8 +129,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   searchSortMode: "hybrid",
   todoShowCompleted: true,
   todoRemindersEnabled: true,
+  todoReminderSound: false,
   todoRotateEnabled: true,
   todoRotateHour: 0,
+  todoDefaultListId: TODO_SYSTEM_LIST_IDS.inbox,
 };
 
 export interface ClipSearchQuery {

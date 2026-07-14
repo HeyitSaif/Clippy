@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TODO_SYSTEM_LIST_IDS } from "@shared/types";
+import { todoFromClip } from "@shared/clip-to-todo";
 import { ClipList } from "../components/ClipList";
 import { ClipPreview } from "../components/ClipPreview";
 import { Toast } from "../components/Toast";
@@ -115,6 +117,29 @@ export function ClipboardTab() {
       else show("Delete failed — restart Clippy");
     },
     [deleteClip, show],
+  );
+
+  const handleCreateTodo = useCallback(
+    async (id: string) => {
+      try {
+        const [clip, settings] = await Promise.all([
+          window.clippy.getClip(id),
+          window.clippy.getSettings(),
+        ]);
+        if (!clip) {
+          show("Clip not found");
+          return;
+        }
+        const { title, notes } = todoFromClip(clip);
+        const listId =
+          settings.todoDefaultListId || TODO_SYSTEM_LIST_IDS.inbox;
+        await window.clippy.createTodo({ title, listId, notes });
+        show("Added to Todo");
+      } catch {
+        show("Could not create todo");
+      }
+    },
+    [show],
   );
 
   const handleAddTag = useCallback(
@@ -341,6 +366,7 @@ export function ClipboardTab() {
           onPaste={handlePaste}
           onTogglePin={handleTogglePin}
           onToggleSnippet={handleToggleSnippet}
+          onCreateTodo={handleCreateTodo}
           onDelete={handleDelete}
           onPreview={setPreviewId}
           onNearEnd={handleNearEnd}

@@ -103,6 +103,8 @@ export function TodoTab({
     cyclePriority,
     deleteTodo,
     createList,
+    renameList,
+    deleteList,
   } = useTodos();
 
   const remindersEnabled = settings?.todoRemindersEnabled ?? true;
@@ -111,10 +113,13 @@ export function TodoTab({
   const [draft, setDraft] = useState("");
   const [addingList, setAddingList] = useState(false);
   const [newListName, setNewListName] = useState("");
+  const [renamingListId, setRenamingListId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const addRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const newListRef = useRef<HTMLInputElement>(null);
+  const renameListRef = useRef<HTMLInputElement>(null);
   const pendingReminderTodoId = useRef<string | null>(null);
   const { message, show } = useToast();
 
@@ -181,6 +186,10 @@ export function TodoTab({
     if (addingList) newListRef.current?.focus();
   }, [addingList]);
 
+  useEffect(() => {
+    if (renamingListId) renameListRef.current?.focus();
+  }, [renamingListId]);
+
   const handleCreate = useCallback(async () => {
     const title = draft.trim();
     if (!title) return;
@@ -207,6 +216,24 @@ export function TodoTab({
     if (list) show("List created");
     else show("Could not create list");
   }, [newListName, createList, show]);
+
+  const handleRenameList = useCallback(async () => {
+    if (!renamingListId) return;
+    const name = renameDraft.trim();
+    setRenamingListId(null);
+    setRenameDraft("");
+    if (!name) return;
+    const ok = await renameList(renamingListId, name);
+    if (ok) show("List renamed");
+    else show("Could not rename list");
+  }, [renamingListId, renameDraft, renameList, show]);
+
+  const handleDeleteList = useCallback(async () => {
+    if (!selectedList || selectedList.kind !== "custom") return;
+    const ok = await deleteList(selectedList.id);
+    if (ok) show("List deleted");
+    else show("Could not delete list");
+  }, [selectedList, deleteList, show]);
 
   const handleToggle = useCallback(
     async (id: string) => {
@@ -260,6 +287,12 @@ export function TodoTab({
         if (addingList) {
           setAddingList(false);
           setNewListName("");
+          e.preventDefault();
+          return;
+        }
+        if (renamingListId) {
+          setRenamingListId(null);
+          setRenameDraft("");
           e.preventDefault();
           return;
         }
@@ -321,25 +354,58 @@ export function TodoTab({
     handleCyclePriority,
     editingId,
     addingList,
+    renamingListId,
   ]);
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
       <div className="no-drag toolbar shrink-0">
         <div className="filter-row" style={{ marginTop: 0, flexWrap: "wrap" }}>
-          {lists.map((list) => (
-            <button
-              key={list.id}
-              type="button"
-              onClick={() => setSelectedListId(list.id)}
-              className={cn(
-                "filter-chip",
-                selectedListId === list.id && "filter-chip-active",
-              )}
-            >
-              {listLabel(list)}
-            </button>
-          ))}
+          {lists.map((list) =>
+            renamingListId === list.id ? (
+              <input
+                key={list.id}
+                ref={renameListRef}
+                type="text"
+                value={renameDraft}
+                className="todo-list-input"
+                onChange={(e) => setRenameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleRenameList();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setRenamingListId(null);
+                    setRenameDraft("");
+                  }
+                }}
+                onBlur={() => void handleRenameList()}
+              />
+            ) : (
+              <button
+                key={list.id}
+                type="button"
+                onClick={() => setSelectedListId(list.id)}
+                onDoubleClick={() => {
+                  if (list.kind !== "custom") return;
+                  setRenamingListId(list.id);
+                  setRenameDraft(list.name);
+                }}
+                className={cn(
+                  "filter-chip",
+                  selectedListId === list.id && "filter-chip-active",
+                )}
+                title={
+                  list.kind === "custom"
+                    ? "Double-click to rename"
+                    : listLabel(list)
+                }
+              >
+                {listLabel(list)}
+              </button>
+            ),
+          )}
           {addingList ? (
             <input
               ref={newListRef}
@@ -374,6 +440,17 @@ export function TodoTab({
               title="New list"
             >
               <IconPlus size={10} className="inline-block" /> List
+            </button>
+          )}
+          {selectedList?.kind === "custom" && (
+            <button
+              type="button"
+              className="filter-chip todo-list-delete"
+              title="Delete list"
+              aria-label="Delete list"
+              onClick={() => void handleDeleteList()}
+            >
+              <IconTrash size={10} />
             </button>
           )}
         </div>
@@ -450,6 +527,7 @@ export function TodoTab({
             <TodoRow
               key={todo.id}
               todo={todo}
+              lists={lists}
               selected={todo.id === selectedId}
               editing={todo.id === editingId}
               remindersEnabled={remindersEnabled}
@@ -472,6 +550,7 @@ export function TodoTab({
 
 function TodoRow({
   todo,
+  lists,
   selected,
   editing,
   remindersEnabled,
@@ -484,6 +563,7 @@ function TodoRow({
   onEndEdit,
 }: {
   todo: TodoItem;
+  lists: TodoList[];
   selected: boolean;
   editing: boolean;
   remindersEnabled: boolean;
@@ -499,7 +579,9 @@ function TodoRow({
   onEndEdit: () => void;
 }) {
   const [titleDraft, setTitleDraft] = useState(todo.title);
+  const [notesDraft, setNotesDraft] = useState(todo.notes ?? "");
   const editRef = useRef<HTMLInputElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (editing) {
@@ -511,6 +593,10 @@ function TodoRow({
     }
   }, [editing, todo.title]);
 
+  useEffect(() => {
+    setNotesDraft(todo.notes ?? "");
+  }, [todo.notes, todo.id]);
+
   const commitTitle = async (): Promise<void> => {
     const next = titleDraft.trim();
     onEndEdit();
@@ -519,6 +605,13 @@ function TodoRow({
       return;
     }
     await onUpdate(todo.id, { title: next });
+  };
+
+  const commitNotes = async (): Promise<void> => {
+    const next = notesDraft.trim();
+    const prev = todo.notes?.trim() ?? "";
+    if (next === prev) return;
+    await onUpdate(todo.id, { notes: next || null });
   };
 
   return (
@@ -531,172 +624,217 @@ function TodoRow({
         "clip-row todo-row",
         selected && "clip-row-selected",
         todo.isCompleted && "todo-row-done",
+        selected && "todo-row-expanded",
       )}
     >
-      <button
-        type="button"
-        className={cn("todo-check", todo.isCompleted && "todo-check-done")}
-        aria-label={todo.isCompleted ? "Mark incomplete" : "Mark complete"}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle(todo.id);
-        }}
-      >
-        {todo.isCompleted ? (
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-            <path
-              d="m5 12 5 5L19 7"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : null}
-      </button>
-
-      <div className="min-w-0 flex-1 flex items-center gap-1">
-        {editing ? (
-          <input
-            ref={editRef}
-            type="text"
-            className="todo-title-input"
-            value={titleDraft}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setTitleDraft(e.target.value)}
-            onBlur={() => void commitTitle()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void commitTitle();
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                setTitleDraft(todo.title);
-                onEndEdit();
-              }
-            }}
-          />
-        ) : (
-          <p
-            className={cn(
-              "clip-preview todo-title",
-              todo.isCompleted && "todo-title-done",
-            )}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              onStartEdit();
-            }}
-            title="Double-click to edit"
-          >
-            {todo.title}
-          </p>
-        )}
-      </div>
-
-      <button
-        type="button"
-        className={cn("todo-priority", `todo-priority-${todo.priority}`)}
-        title="Cycle priority"
-        onClick={(e) => {
-          e.stopPropagation();
-          void onCyclePriority(todo.id);
-        }}
-      >
-        {PRIORITY_LABELS[todo.priority]}
-      </button>
-
-      <div className="todo-meta" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="date"
-          className={cn(
-            "todo-date-input",
-            isOverdue(todo) && "todo-date-input-overdue",
-          )}
-          value={toDateInput(todo.dueAt)}
-          title={todo.dueAt ? "Due date" : "Set due date"}
-          onChange={(e) => {
-            void onUpdate(todo.id, { dueAt: fromDateInput(e.target.value) });
+      <div className="todo-row-main">
+        <button
+          type="button"
+          className={cn("todo-check", todo.isCompleted && "todo-check-done")}
+          aria-label={todo.isCompleted ? "Mark incomplete" : "Mark complete"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(todo.id);
           }}
-        />
-        {todo.dueAt != null && (
-          <button
-            type="button"
-            className="todo-meta-clear"
-            aria-label="Clear due date"
-            title="Clear due"
-            onClick={() => void onUpdate(todo.id, { dueAt: null })}
-          >
-            <IconX size={8} />
-          </button>
-        )}
-      </div>
-
-      {remindersEnabled && (
-        <div
-          className="todo-meta todo-meta-remind"
-          onClick={(e) => e.stopPropagation()}
         >
-          <IconBell
-            size={9}
-            className={
-              todo.remindAt
-                ? "text-[var(--accent)] shrink-0"
-                : "text-[var(--text-tertiary)] shrink-0 opacity-60"
-            }
-          />
+          {todo.isCompleted ? (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+              <path
+                d="m5 12 5 5L19 7"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : null}
+        </button>
+
+        <div className="min-w-0 flex-1 flex items-center gap-1">
+          {editing ? (
+            <input
+              ref={editRef}
+              type="text"
+              className="todo-title-input"
+              value={titleDraft}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={() => void commitTitle()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void commitTitle();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setTitleDraft(todo.title);
+                  onEndEdit();
+                }
+              }}
+            />
+          ) : (
+            <p
+              className={cn(
+                "clip-preview todo-title",
+                todo.isCompleted && "todo-title-done",
+              )}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onStartEdit();
+              }}
+              title={todo.notes?.trim() || "Double-click to edit"}
+            >
+              {todo.title}
+              {todo.notes?.trim() ? (
+                <span className="todo-notes-hint"> · note</span>
+              ) : null}
+            </p>
+          )}
+        </div>
+
+        <button
+          type="button"
+          className={cn("todo-priority", `todo-priority-${todo.priority}`)}
+          title="Cycle priority"
+          onClick={(e) => {
+            e.stopPropagation();
+            void onCyclePriority(todo.id);
+          }}
+        >
+          {PRIORITY_LABELS[todo.priority]}
+        </button>
+
+        <div className="todo-meta" onClick={(e) => e.stopPropagation()}>
           <input
-            type="datetime-local"
-            className="todo-datetime-input"
-            value={toDatetimeLocal(todo.remindAt)}
-            title={todo.remindAt ? "Reminder" : "Set reminder"}
+            type="date"
+            className={cn(
+              "todo-date-input",
+              isOverdue(todo) && "todo-date-input-overdue",
+            )}
+            value={toDateInput(todo.dueAt)}
+            title={todo.dueAt ? "Due date" : "Set due date"}
             onChange={(e) => {
-              void onUpdate(todo.id, {
-                remindAt: fromDatetimeLocal(e.target.value),
-              });
+              void onUpdate(todo.id, { dueAt: fromDateInput(e.target.value) });
             }}
           />
-          {todo.remindAt != null && (
+          {todo.dueAt != null && (
             <button
               type="button"
               className="todo-meta-clear"
-              aria-label="Clear reminder"
-              title="Clear reminder"
-              onClick={() => void onUpdate(todo.id, { remindAt: null })}
+              aria-label="Clear due date"
+              title="Clear due"
+              onClick={() => void onUpdate(todo.id, { dueAt: null })}
             >
               <IconX size={8} />
             </button>
           )}
         </div>
-      )}
 
-      <div className="todo-row-actions no-drag">
-        {!editing && (
-          <button
-            type="button"
-            className="clip-action-btn"
-            aria-label="Edit"
-            title="Edit title"
-            onClick={(e) => {
-              e.stopPropagation();
-              onStartEdit();
-            }}
+        {remindersEnabled && (
+          <div
+            className="todo-meta todo-meta-remind"
+            onClick={(e) => e.stopPropagation()}
           >
-            <IconPencil size={11} />
-          </button>
+            <IconBell
+              size={9}
+              className={
+                todo.remindAt
+                  ? "text-[var(--accent)] shrink-0"
+                  : "text-[var(--text-tertiary)] shrink-0 opacity-60"
+              }
+            />
+            <input
+              type="datetime-local"
+              className="todo-datetime-input"
+              value={toDatetimeLocal(todo.remindAt)}
+              title={todo.remindAt ? "Reminder" : "Set reminder"}
+              onChange={(e) => {
+                void onUpdate(todo.id, {
+                  remindAt: fromDatetimeLocal(e.target.value),
+                });
+              }}
+            />
+            {todo.remindAt != null && (
+              <button
+                type="button"
+                className="todo-meta-clear"
+                aria-label="Clear reminder"
+                title="Clear reminder"
+                onClick={() => void onUpdate(todo.id, { remindAt: null })}
+              >
+                <IconX size={8} />
+              </button>
+            )}
+          </div>
         )}
-        <button
-          type="button"
-          className="clip-action-btn clip-action-btn-danger"
-          aria-label="Delete"
-          title="Delete"
-          onClick={(e) => {
-            e.stopPropagation();
-            void onDelete(todo.id);
+
+        <select
+          className="todo-move-select"
+          value={todo.listId}
+          title="Move to list"
+          aria-label="Move to list"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            const listId = e.target.value;
+            if (listId === todo.listId) return;
+            void onUpdate(todo.id, { listId });
           }}
         >
-          <IconTrash size={11} />
-        </button>
+          {lists.map((list) => (
+            <option key={list.id} value={list.id}>
+              {listLabel(list)}
+            </option>
+          ))}
+        </select>
+
+        <div className="todo-row-actions no-drag">
+          {!editing && (
+            <button
+              type="button"
+              className="clip-action-btn"
+              aria-label="Edit"
+              title="Edit title"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartEdit();
+              }}
+            >
+              <IconPencil size={11} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="clip-action-btn clip-action-btn-danger"
+            aria-label="Delete"
+            title="Delete"
+            onClick={(e) => {
+              e.stopPropagation();
+              void onDelete(todo.id);
+            }}
+          >
+            <IconTrash size={11} />
+          </button>
+        </div>
       </div>
+
+      {selected && (
+        <textarea
+          ref={notesRef}
+          className="todo-notes"
+          placeholder="Notes…"
+          rows={2}
+          value={notesDraft}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setNotesDraft(e.target.value)}
+          onBlur={() => void commitNotes()}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setNotesDraft(todo.notes ?? "");
+              notesRef.current?.blur();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

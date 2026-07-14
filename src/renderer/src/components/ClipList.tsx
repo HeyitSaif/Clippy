@@ -13,6 +13,7 @@ import {
   IconImage,
   IconPaste,
   IconCheckSquare,
+  IconFlag,
   IconPin,
   IconText,
   IconTrash,
@@ -27,6 +28,7 @@ interface ClipListProps {
   onPaste: (id: string) => void;
   onTogglePin: (id: string) => void;
   onToggleSnippet: (id: string) => void;
+  onCreateTodo: (id: string) => void;
   onDelete: (id: string) => void;
   onPreview: (id: string) => void;
   onNearEnd?: () => void;
@@ -44,6 +46,7 @@ export function ClipList({
   onPaste,
   onTogglePin,
   onToggleSnippet,
+  onCreateTodo,
   onDelete,
   onPreview,
   onNearEnd,
@@ -117,6 +120,7 @@ export function ClipList({
                 onPaste={onPaste}
                 onTogglePin={onTogglePin}
                 onToggleSnippet={onToggleSnippet}
+                onCreateTodo={onCreateTodo}
                 onDelete={onDelete}
                 onPreview={onPreview}
               />
@@ -138,6 +142,7 @@ const ClipRow = memo(function ClipRow({
   onPaste,
   onTogglePin,
   onToggleSnippet,
+  onCreateTodo,
   onDelete,
   onPreview,
 }: {
@@ -150,6 +155,7 @@ const ClipRow = memo(function ClipRow({
   onPaste: (id: string) => void;
   onTogglePin: (id: string) => void;
   onToggleSnippet: (id: string) => void;
+  onCreateTodo: (id: string) => void;
   onDelete: (id: string) => void;
   onPreview: (id: string) => void;
 }) {
@@ -239,6 +245,15 @@ const ClipRow = memo(function ClipRow({
           }}
         >
           <IconEye size={11} />
+        </IconTip>
+        <IconTip
+          label="Add to Todo"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateTodo(clip.id);
+          }}
+        >
+          <IconFlag size={11} />
         </IconTip>
         <IconTip
           label="Delete"

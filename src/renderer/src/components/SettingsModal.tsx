@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
-import type { AppSettings } from "@shared/types";
+import { useCallback, useEffect, useState } from "react";
+import type { AppSettings, TodoList } from "@shared/types";
 import { HotkeyRecorder } from "./HotkeyRecorder";
 import { useAccessibility } from "../hooks/useAccessibility";
 import { usePlatform } from "../hooks/usePlatform";
 import { IconX } from "./icons";
+import { listLabel } from "../hooks/useTodos";
 
 interface SettingsModalProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function SettingsModal({
   onClear,
 }: SettingsModalProps) {
   const [ignoreDraft, setIgnoreDraft] = useState<string | null>(null);
+  const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const {
     status: accessibilityStatus,
     needsAccess,
@@ -36,6 +38,11 @@ export function SettingsModal({
   const { pasteSlotLabel, isMac, platform } = usePlatform();
 
   const ignoreValue = ignoreDraft ?? settings?.ignorePatterns.join("\n") ?? "";
+
+  useEffect(() => {
+    if (!open) return;
+    void window.clippy.listTodoLists().then(setTodoLists);
+  }, [open]);
 
   const saveIgnore = useCallback(() => {
     if (ignoreDraft === null) return;
@@ -206,6 +213,45 @@ export function SettingsModal({
           </SettingRow>
           <p className="settings-hint px-0.5 pb-1">
             System notifications when a task reminder time is reached.
+          </p>
+
+          <SettingRow label="Reminder sound">
+            <MiniToggle
+              checked={settings.todoReminderSound ?? false}
+              onChange={(v) => void onUpdate({ todoReminderSound: v })}
+            />
+          </SettingRow>
+
+          <SettingRow label="Default list">
+            <select
+              value={settings.todoDefaultListId ?? "todo-list-inbox"}
+              onChange={(e) =>
+                void onUpdate({ todoDefaultListId: e.target.value })
+              }
+              className="settings-input"
+              style={{ width: 140, textAlign: "left" }}
+            >
+              {(todoLists.length > 0
+                ? todoLists
+                : [
+                    {
+                      id: "todo-list-inbox",
+                      name: "Inbox",
+                      kind: "inbox" as const,
+                      sortOrder: 0,
+                      createdAt: 0,
+                      updatedAt: 0,
+                    },
+                  ]
+              ).map((list) => (
+                <option key={list.id} value={list.id}>
+                  {listLabel(list)}
+                </option>
+              ))}
+            </select>
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            Used for new tasks and Clip → Todo.
           </p>
 
           <SettingRow label="Auto-rotate lists">

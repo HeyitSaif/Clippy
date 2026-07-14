@@ -42,12 +42,20 @@ export function useTodos() {
   const debouncedQuery = useDebouncedValue(query, 150)
   const requestSeq = useRef(0)
   const initialLoad = useRef(true)
+  const appliedDefaultList = useRef(false)
 
   useEffect(() => {
     void window.clippy.getSettings().then(setSettings)
     const unsub = window.clippy.onSettingsChanged(setSettings)
     return unsub
   }, [])
+
+  useEffect(() => {
+    if (!settings || appliedDefaultList.current) return
+    appliedDefaultList.current = true
+    const id = settings.todoDefaultListId
+    if (id) setSelectedListId(id)
+  }, [settings])
 
   const effectiveFilter: TodoFilter = effectiveTodoFilter(filter, showCompleted)
 
@@ -207,14 +215,21 @@ export function useTodos() {
       partial: Parameters<typeof window.clippy.updateTodo>[1]
     ): Promise<boolean> => {
       // Optimistic local patch for snappy UI
-      setTodos((prev) =>
-        sortTodos(
+      setTodos((prev) => {
+        if (
+          partial.listId !== undefined &&
+          partial.listId !== selectedListId
+        ) {
+          return prev.filter((t) => t.id !== id)
+        }
+        return sortTodos(
           prev.map((t) => {
             if (t.id !== id) return t
             return {
               ...t,
               ...partial,
               title: partial.title !== undefined ? partial.title : t.title,
+              listId: partial.listId !== undefined ? partial.listId : t.listId,
               priority:
                 partial.priority !== undefined ? partial.priority : t.priority,
               dueAt: partial.dueAt !== undefined ? partial.dueAt : t.dueAt,
@@ -228,7 +243,7 @@ export function useTodos() {
             }
           })
         )
-      )
+      })
       try {
         const result = await window.clippy.updateTodo(id, partial)
         if (!result) {
@@ -241,7 +256,7 @@ export function useTodos() {
         return false
       }
     },
-    [refreshTodos]
+    [refreshTodos, selectedListId]
   )
 
   const cyclePriority = useCallback(

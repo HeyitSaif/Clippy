@@ -77,7 +77,7 @@ export class TodoReminderService {
           const notification = new Notification({
             title: todo.title,
             body: todo.notes?.trim() ? todo.notes.trim() : "Todo reminder",
-            silent: false,
+            silent: !settings.todoReminderSound,
             timeoutType: "default",
           });
           const target: TodoReminderTarget = {
