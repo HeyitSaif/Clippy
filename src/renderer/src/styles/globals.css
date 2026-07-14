@@ -933,16 +933,18 @@ body {
   max-height: 42%;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--glass-bg-elevated) 82%, #ffffff);
-  backdrop-filter: blur(28px) saturate(150%);
-  -webkit-backdrop-filter: blur(28px) saturate(150%);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
 }
 
 @media (prefers-color-scheme: dark) {
   .preview-panel {
-    background: color-mix(in srgb, var(--glass-bg-elevated) 88%, #1c1c20);
+    background: rgba(36, 36, 40, 0.96);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
   }
 }
 
