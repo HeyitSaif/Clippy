@@ -925,3 +925,220 @@ body {
     opacity: 1;
   }
 }
+
+/* Todo tab */
+.settings-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: 4px 2px 6px;
+}
+
+.todo-list-input {
+  width: 88px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  background: var(--glass-bg-inset);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.todo-list-input::placeholder {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.todo-list-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.todo-row {
+  height: auto;
+  min-height: 36px;
+  gap: 4px;
+  padding: 3px 4px;
+}
+
+.todo-row-done {
+  opacity: 0.72;
+}
+
+.todo-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--glass-border-subtle);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  padding: 0;
+}
+
+.todo-check:hover {
+  border-color: var(--accent);
+}
+
+.todo-check-done {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.todo-title {
+  cursor: text;
+}
+
+.todo-title-done {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.todo-title-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 4px;
+  background: var(--glass-bg-inset);
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--text-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.todo-priority {
+  flex-shrink: 0;
+  min-width: 28px;
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  background: var(--glass-bg-inset);
+  color: var(--text-tertiary);
+  transition: background 0.1s, color 0.1s;
+}
+
+.todo-priority:hover {
+  border-color: var(--glass-border-subtle);
+}
+
+.todo-priority-0 {
+  color: var(--text-tertiary);
+  background: transparent;
+}
+
+.todo-priority-1 {
+  color: var(--text-secondary);
+  background: var(--glass-bg-inset);
+}
+
+.todo-priority-2 {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.todo-priority-3 {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.todo-meta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  max-width: 108px;
+}
+
+.todo-meta-remind {
+  max-width: 132px;
+}
+
+.todo-date-input,
+.todo-datetime-input {
+  min-width: 0;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.todo-date-input {
+  width: 92px;
+}
+
+.todo-datetime-input {
+  width: 118px;
+}
+
+.todo-date-input:hover,
+.todo-datetime-input:hover,
+.todo-date-input:focus,
+.todo-datetime-input:focus {
+  color: var(--text-secondary);
+}
+
+.todo-date-input-overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.todo-meta-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s, background 0.1s;
+}
+
+.todo-meta:hover .todo-meta-clear,
+.todo-row-selected .todo-meta-clear {
+  opacity: 1;
+}
+
+.todo-meta-clear:hover {
+  color: var(--danger);
+  background: var(--glass-bg-inset);
+}
+
+.todo-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.todo-row:hover .todo-row-actions,
+.clip-row-selected.todo-row .todo-row-actions {
+  opacity: 1;
+}

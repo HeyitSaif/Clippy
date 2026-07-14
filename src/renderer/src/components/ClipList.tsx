@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { ClipListItem } from "@shared/types";
+import { isNearEnd, NEAR_END_THRESHOLD } from "@shared/clip-pagination";
+import { thumbUrl } from "@shared/thumb-protocol";
 import { cn, formatRelativeTime } from "../lib/utils";
 import { HighlightText } from "./HighlightText";
 import { IconTip } from "./IconTip";
@@ -20,7 +22,6 @@ interface ClipListProps {
   clips: ClipListItem[];
   selectedId: string | null;
   searchQuery: string;
-  thumbs: Record<string, string>;
   onSelect: (id: string) => void;
   onCopy: (id: string) => void;
   onPaste: (id: string) => void;
@@ -28,7 +29,7 @@ interface ClipListProps {
   onToggleSnippet: (id: string) => void;
   onDelete: (id: string) => void;
   onPreview: (id: string) => void;
-  onVisibleIdsChange: (ids: string[]) => void;
+  onNearEnd?: () => void;
 }
 
 const ROW_H = 36;
@@ -38,7 +39,6 @@ export function ClipList({
   clips,
   selectedId,
   searchQuery,
-  thumbs,
   onSelect,
   onCopy,
   onPaste,
@@ -46,9 +46,11 @@ export function ClipList({
   onToggleSnippet,
   onDelete,
   onPreview,
-  onVisibleIdsChange,
+  onNearEnd,
 }: ClipListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  /** Fire onNearEnd once per list length while near end (resets when length changes). */
+  const nearEndFiredForLength = useRef(-1);
   const selectedIndex = selectedId
     ? clips.findIndex((c) => c.id === selectedId)
     : -1;
@@ -64,18 +66,20 @@ export function ClipList({
   const virtualItems = virtualizer.getVirtualItems();
 
   useEffect(() => {
+    if (!onNearEnd || clips.length === 0) return;
+    const last = virtualItems[virtualItems.length - 1];
+    if (!last) return;
+    if (!isNearEnd(last.index, clips.length, NEAR_END_THRESHOLD)) return;
+    if (nearEndFiredForLength.current === clips.length) return;
+    nearEndFiredForLength.current = clips.length;
+    onNearEnd();
+  }, [clips.length, onNearEnd, virtualItems]);
+
+  useEffect(() => {
     if (selectedIndex >= 0 && selectedIndex < clips.length) {
       virtualizer.scrollToIndex(selectedIndex, { align: "auto" });
     }
   }, [selectedIndex, clips.length, virtualizer]);
-
-  useEffect(() => {
-    const ids = virtualItems
-      .map((v) => clips[v.index])
-      .filter((c) => c?.hasThumb)
-      .map((c) => c.id);
-    onVisibleIdsChange(ids);
-  }, [virtualItems, clips, onVisibleIdsChange]);
 
   if (clips.length === 0) return null;
 
@@ -108,7 +112,6 @@ export function ClipList({
                 index={virtualRow.index}
                 selected={clip.id === selectedId}
                 searchQuery={searchQuery}
-                thumbSrc={thumbs[clip.id]}
                 onSelect={onSelect}
                 onCopy={onCopy}
                 onPaste={onPaste}
@@ -130,7 +133,6 @@ const ClipRow = memo(function ClipRow({
   index,
   selected,
   searchQuery,
-  thumbSrc,
   onSelect,
   onCopy,
   onPaste,
@@ -143,7 +145,6 @@ const ClipRow = memo(function ClipRow({
   index: number;
   selected: boolean;
   searchQuery: string;
-  thumbSrc?: string;
   onSelect: (id: string) => void;
   onCopy: (id: string) => void;
   onPaste: (id: string) => void;
@@ -153,6 +154,7 @@ const ClipRow = memo(function ClipRow({
   onPreview: (id: string) => void;
 }) {
   const isImage = clip.type === "image" && clip.hasThumb;
+  const thumbSrc = isImage ? thumbUrl(clip.id) : undefined;
   const slot = index < 9 && !searchQuery.trim() ? index + 1 : null;
 
   return (

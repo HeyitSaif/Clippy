@@ -5,6 +5,16 @@ import path from 'node:path'
 import log from 'electron-log'
 import type { ClipRepository } from '../db/database'
 import type { AppSettings } from '@shared/types'
+import {
+  compileIgnorePatterns,
+  looksLikeNetworkPath,
+  matchesIgnorePatterns
+} from '@shared/search'
+import {
+  formatsIncludeImage,
+  formatsIncludeText,
+  formatsKey
+} from '@shared/clipboard-watch'
 
 export interface RawClipItem {
   type: 'text' | 'image' | 'file'
@@ -17,6 +27,8 @@ export interface RawClipItem {
   thumbBuffer?: Buffer
   filePath?: string
 }
+
+type ContentKind = 'text' | 'image'
 
 function sha256(data: string | Buffer): string {
   return crypto.createHash('sha256').update(data).digest('hex')
@@ -47,29 +59,33 @@ function detectFilePath(text: string): string | null {
   return null
 }
 
-function shouldIgnore(text: string, patterns: string[]): boolean {
-  for (const pattern of patterns) {
-    try {
-      if (new RegExp(pattern, 'i').test(text)) return true
-    } catch {
-      if (text.toLowerCase().includes(pattern.toLowerCase())) return true
-    }
-  }
-  return false
+function imagePollFingerprint(image: Electron.NativeImage): string {
+  const size = image.getSize()
+  const bitmap = Buffer.from(image.toBitmap())
+  return sha256(
+    Buffer.concat([Buffer.from(`${size.width}x${size.height}:${bitmap.byteLength}:`), bitmap])
+  )
 }
 
 export class ClipboardService {
   private listening = false
   private recentHash: string | null = null
+  private recentImageFingerprint: string | null = null
+  /** Tier-1: last seen availableFormats() fingerprint. */
+  private lastFormatsKey: string | null = null
+  /** Last successfully observed content kind (text/file vs image). */
+  private lastContentKind: ContentKind | null = null
   private pollTimer: NodeJS.Timeout | null = null
   private idleStreak = 0
   private skipNext = false
   private onClipCallback: ((clipId: string) => void) | null = null
+  private compiledIgnore: Array<RegExp | string> = []
+  private ignorePatternsKey = ''
 
   constructor(
     private clipRepo: ClipRepository,
     private getSettings: () => AppSettings
-  ) { }
+  ) {}
 
   onClip(callback: (clipId: string) => void): void {
     this.onClipCallback = callback
@@ -90,6 +106,19 @@ export class ClipboardService {
     this.skipNext = true
   }
 
+  private refreshIgnoreCache(patterns: string[]): void {
+    const key = patterns.join('\n')
+    if (key === this.ignorePatternsKey) return
+    this.ignorePatternsKey = key
+    this.compiledIgnore = compileIgnorePatterns(patterns)
+  }
+
+  private markFormatsIdle(key: string, kind: ContentKind): void {
+    this.lastFormatsKey = key
+    this.lastContentKind = kind
+    this.idleStreak++
+  }
+
   private schedulePoll(): void {
     if (!this.listening) return
     const settings = this.getSettings()
@@ -106,11 +135,41 @@ export class ClipboardService {
       const formats = clipboard.availableFormats()
       if (formats.length === 0) return
 
+      const key = formatsKey(formats)
+      const hasImage = formatsIncludeImage(formats)
+
+      // Tier 1: formats unchanged + last content was text → skip readText/readHTML/readRTF.
+      // Images cannot use this short-circuit: content often changes while formats stay the same.
+      if (
+        key === this.lastFormatsKey &&
+        this.lastContentKind === 'text' &&
+        this.recentHash != null &&
+        !hasImage
+      ) {
+        this.idleStreak++
+        return
+      }
+
       let raw: RawClipItem | null = null
 
-      if (formats.some((f) => f.startsWith('image/'))) {
+      if (hasImage) {
         const image = clipboard.readImage()
         if (image.isEmpty()) return
+
+        const fingerprint = imagePollFingerprint(image)
+        if (this.skipNext) {
+          this.skipNext = false
+          this.recentImageFingerprint = fingerprint
+          this.recentHash = fingerprint
+          this.lastFormatsKey = key
+          this.lastContentKind = 'image'
+          return
+        }
+        if (fingerprint === this.recentImageFingerprint) {
+          this.markFormatsIdle(key, 'image')
+          return
+        }
+
         const png = image.toPNG()
         const thumb = generateThumb(image)
         raw = {
@@ -120,25 +179,51 @@ export class ClipboardService {
           imageBuffer: png,
           thumbBuffer: thumb.buffer
         }
-      } else if (formats.some((f) => f.startsWith('text/'))) {
+        this.recentImageFingerprint = fingerprint
+      } else if (formatsIncludeText(formats)) {
+        this.recentImageFingerprint = null
         const text = clipboard.readText()
         if (!text.trim()) return
         const settings = this.getSettings()
-        if (shouldIgnore(text, settings.ignorePatterns)) return
+        this.refreshIgnoreCache(settings.ignorePatterns)
+        if (matchesIgnorePatterns(text, this.compiledIgnore)) return
+
+        const contentHash = sha256(text)
+        if (this.skipNext) {
+          this.skipNext = false
+          this.recentHash = contentHash
+          this.lastFormatsKey = key
+          this.lastContentKind = 'text'
+          return
+        }
+        if (contentHash === this.recentHash) {
+          this.markFormatsIdle(key, 'text')
+          return
+        }
 
         const filePath = detectFilePath(text)
-        if (filePath && fs.existsSync(filePath)) {
-          raw = {
-            type: 'file',
-            hash: sha256(text),
-            text,
-            preview: path.basename(filePath),
-            filePath
+        if (filePath && !looksLikeNetworkPath(filePath)) {
+          let exists = false
+          try {
+            exists = fs.existsSync(filePath)
+          } catch {
+            exists = false
           }
-        } else {
+          if (exists) {
+            raw = {
+              type: 'file',
+              hash: contentHash,
+              text,
+              preview: path.basename(filePath),
+              filePath
+            }
+          }
+        }
+
+        if (!raw) {
           raw = {
             type: 'text',
-            hash: sha256(text),
+            hash: contentHash,
             text,
             html: clipboard.readHTML(),
             rtf: clipboard.readRTF(),
@@ -149,19 +234,15 @@ export class ClipboardService {
 
       if (!raw) return
 
-      if (this.skipNext) {
-        this.skipNext = false
-        this.recentHash = raw.hash
-        return
-      }
-
       if (raw.hash === this.recentHash) {
-        this.idleStreak++
+        this.markFormatsIdle(key, raw.type === 'image' ? 'image' : 'text')
         return
       }
 
       this.idleStreak = 0
       this.recentHash = raw.hash
+      this.lastFormatsKey = key
+      this.lastContentKind = raw.type === 'image' ? 'image' : 'text'
 
       const existing = this.clipRepo.getByHash(raw.hash)
       if (existing) {
@@ -212,9 +293,16 @@ export class ClipboardService {
       return true
     }
     if (clip.type === 'image' && clip.imagePath) {
-      const dataUrl = this.clipRepo.readImageAsDataUrl(clip.imagePath)
-      clipboard.writeImage(nativeImage.createFromDataURL(dataUrl))
-      return true
+      try {
+        clipboard.writeImage(nativeImage.createFromPath(clip.imagePath))
+        return true
+      } catch (err) {
+        log.warn('createFromPath failed, falling back to data URL', err)
+        const dataUrl = this.clipRepo.readImageAsDataUrl(clip.imagePath)
+        if (!dataUrl) return false
+        clipboard.writeImage(nativeImage.createFromDataURL(dataUrl))
+        return true
+      }
     }
     return false
   }

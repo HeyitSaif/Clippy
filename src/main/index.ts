@@ -1,5 +1,4 @@
 import { app, BrowserWindow } from 'electron'
-import { electronApp, optimizer } from '@electron-toolkit/utils'
 import log from 'electron-log'
 import { createDatabase, importLegacyV1 } from './db/database'
 import { ClipboardService } from './services/clipboard-service'
@@ -7,20 +6,39 @@ import { PasteService } from './services/paste-service'
 import { AccessibilityService } from './services/accessibility-service'
 import { FocusService } from './services/focus-service'
 import { HotkeyService } from './services/hotkey-service'
+import { TodoRotateService } from './services/todo-rotate-service'
+import { TodoReminderService } from './services/todo-reminder-service'
 import { createMainWindow, TrayService } from './window/main-window'
-import { registerIpcHandlers, notifyClipAdded, notifyWindowFocused, notifyAccessibilityRequired } from './ipc/handlers'
+import {
+  registerIpcHandlers,
+  notifyClipAdded,
+  notifyClipsUpdated,
+  notifyTodosUpdated,
+  notifyWindowFocused,
+  notifyAccessibilityRequired,
+  notifySettingsChanged
+} from './ipc/handlers'
+import {
+  registerMediaSchemesAsPrivileged,
+  registerMediaProtocols
+} from './protocol/media-protocol'
 import type { AppSettings } from '@shared/types'
+
+// Must run before app.whenReady() — both schemes in one call
+registerMediaSchemesAsPrivileged()
 
 log.initialize()
 log.info('Clippy v2 starting')
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
+  // Second instance must not open the DB or register hotkeys/tray
   app.quit()
+  process.exit(0)
 }
 
 let mainWindow: BrowserWindow | null = null
-const { clipRepo, settingsRepo } = createDatabase()
+const { clipRepo, settingsRepo, todoRepo } = createDatabase()
 let settings: AppSettings = settingsRepo.getAll()
 
 const clipboardService = new ClipboardService(clipRepo, () => settings)
@@ -33,6 +51,13 @@ const pasteService = new PasteService(
   () => notifyAccessibilityRequired()
 )
 
+const todoRotateService = new TodoRotateService(todoRepo, settingsRepo, () =>
+  notifyTodosUpdated()
+)
+const todoReminderService = new TodoReminderService(todoRepo, settingsRepo, () =>
+  notifyTodosUpdated()
+)
+
 async function showClippyWindow(): Promise<void> {
   if (!mainWindow) return
   if (!mainWindow.isVisible()) {
@@ -42,6 +67,7 @@ async function showClippyWindow(): Promise<void> {
   mainWindow.show()
   mainWindow.focus()
   notifyWindowFocused()
+  todoRotateService.onWindowFocus()
 }
 
 function hideClippyWindow(): void {
@@ -70,6 +96,7 @@ const hotkeyService = new HotkeyService(
       return
     }
     log.info(`Paste slot ${slot} triggered for clip ${item.id}`)
+    // Global paste slots always paste; Auto Paste setting only affects panel Enter/click
     const result = await pasteService.writeAndAutoPaste(
       () => clipboardService.writeClipToSystem(item.id),
       { autoPaste: true, hideAfterPaste: true }
@@ -94,6 +121,7 @@ function onSettingsUpdated(next: AppSettings): { ok: boolean; error?: string } {
   applyLoginItem(next)
   const result = hotkeyService.register()
   trayService.rebuildMenu()
+  notifySettingsChanged(next)
   return result
 }
 
@@ -106,7 +134,7 @@ trayService = new TrayService(
   },
   () => {
     clipRepo.clearUnpinned()
-    notifyClipAdded('')
+    notifyClipsUpdated()
   },
   () => app.quit(),
   () => showClippyWindow()
@@ -115,16 +143,30 @@ trayService = new TrayService(
 registerIpcHandlers({
   clipRepo,
   settingsRepo,
+  todoRepo,
   clipboardService,
   pasteService,
   accessibilityService,
+  todoRotateService,
   onSettingsUpdated,
   showClippyWindow,
   hideClippyWindow
 })
 
+function hardenWebContents(win: BrowserWindow): void {
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (event, url) => {
+    const allowed =
+      url.startsWith('file://') ||
+      (process.env.ELECTRON_RENDERER_URL != null &&
+        url.startsWith(process.env.ELECTRON_RENDERER_URL))
+    if (!allowed) event.preventDefault()
+  })
+}
+
 function createWindow(): void {
   mainWindow = createMainWindow()
+  hardenWebContents(mainWindow)
 
   mainWindow.on('blur', () => {
     if (settings.hideOnBlur) {
@@ -141,6 +183,7 @@ function createWindow(): void {
     }
     mainWindow?.focus()
     notifyWindowFocused()
+    todoRotateService.onWindowFocus()
   })
 
   mainWindow.webContents.once('dom-ready', () => {
@@ -158,18 +201,22 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.clippy.app')
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.clippy.app')
+  }
 
   importLegacyV1(clipRepo)
   settings = settingsRepo.getAll()
   applyLoginItem(settings)
 
+  // Register custom protocol handlers after ready, before createWindow
+  registerMediaProtocols(clipRepo)
+
   createWindow()
   trayService.create()
   hotkeyService.register()
+  todoRotateService.start()
+  todoReminderService.start()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -184,6 +231,8 @@ app.on('second-instance', () => {
 app.on('will-quit', () => {
   hotkeyService.unregister()
   clipboardService.stop()
+  todoRotateService.stop()
+  todoReminderService.stop()
   trayService.destroy()
   clipRepo.close()
 })

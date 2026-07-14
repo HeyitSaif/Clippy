@@ -56,9 +56,14 @@ export function keyEventToAccelerator(event: KeyboardEvent): string | null {
 
   let key = KEY_ALIASES[event.key] ?? event.key
   if (key.length === 1) key = key.toUpperCase()
-  if (/^F\d{1,2}$/.test(key)) {
-    /* keep */
-  } else if (!/^[A-Z0-9]$/.test(key) && !KEY_ALIASES[event.key] && key.length > 1 && !key.startsWith('F')) {
+  const isFunctionKey = /^F\d{1,2}$/.test(key)
+  if (
+    !isFunctionKey &&
+    !/^[A-Z0-9]$/.test(key) &&
+    !KEY_ALIASES[event.key] &&
+    key.length > 1 &&
+    !key.startsWith('F')
+  ) {
     return null
   }
 

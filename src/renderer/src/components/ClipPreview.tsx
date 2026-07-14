@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { imageUrl } from "@shared/thumb-protocol";
 import type { ClipRecord } from "@shared/types";
 import { cn } from "../lib/utils";
 import { IconX } from "./icons";
@@ -10,22 +11,13 @@ interface ClipPreviewProps {
 
 export function ClipPreview({ clipId, onClose }: ClipPreviewProps) {
   const [clip, setClip] = useState<ClipRecord | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clipId) {
       setClip(null);
-      setImageUrl(null);
       return;
     }
-    void window.clippy.getClip(clipId).then((c) => {
-      setClip(c);
-      if (c?.type === "image") {
-        void window.clippy.getClipImage(clipId).then(setImageUrl);
-      } else {
-        setImageUrl(null);
-      }
-    });
+    void window.clippy.getClip(clipId).then(setClip);
   }, [clipId]);
 
   if (!clipId || !clip) return null;
@@ -47,17 +39,13 @@ export function ClipPreview({ clipId, onClose }: ClipPreviewProps) {
       </div>
       <div className="clip-scroll max-h-[200px] overflow-y-auto p-3">
         {clip.type === "image" ? (
-          imageUrl ? (
-            <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--glass-border-subtle)] shadow-md">
-              <img
-                src={imageUrl}
-                alt="Clip preview"
-                className="max-h-52 w-full object-contain"
-              />
-            </div>
-          ) : (
-            <div className="shimmer h-32 rounded-[var(--radius-md)]" />
-          )
+          <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--glass-border-subtle)] shadow-md">
+            <img
+              src={imageUrl(clip.id)}
+              alt="Clip preview"
+              className="max-h-52 w-full object-contain"
+            />
+          </div>
         ) : (
           <pre
             className={cn(

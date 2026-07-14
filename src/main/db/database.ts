@@ -4,10 +4,33 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import log from 'electron-log'
 import { SCHEMA_SQL } from './schema'
+import { TodoRepository } from './todos'
 import type { AppSettings, ClipListItem, ClipRecord, ClipSearchQuery, ClipType } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
-import { buildFtsQuery } from '@shared/search'
-import { isFtsHealthy, rebuildFtsIndex, runWithFtsRecovery, setupFts, syncFtsRow, deleteFtsRow, getClipRowid, ftsFieldsFromRecord } from './fts'
+import {
+  buildFtsQuery,
+  buildSearchOrderBy,
+  buildTagLikePattern,
+  isSafeRegexPattern
+} from '@shared/search'
+import { isUnderDir } from '@shared/path-utils'
+import {
+  matchRegexClipFields,
+  REGEX_SEARCH_BATCH_SIZE,
+  REGEX_SEARCH_MAX_SCAN,
+  REGEX_TEXT_BODY_LIMIT
+} from '@shared/regex-search'
+import type { SearchSortMode } from '@shared/types'
+import { isFtsHealthy, rebuildFtsIndex, runWithFtsRecovery, setupFts } from './fts'
+
+function safeParseTags(json: unknown): string[] {
+  try {
+    const parsed: unknown = JSON.parse((json as string) || '[]')
+    return Array.isArray(parsed) ? parsed.filter((tag): tag is string => typeof tag === 'string') : []
+  } catch {
+    return []
+  }
+}
 
 function rowToRecord(row: Record<string, unknown>): ClipRecord {
   return {
@@ -24,7 +47,7 @@ function rowToRecord(row: Record<string, unknown>): ClipRecord {
     isPinned: Boolean(row.is_pinned),
     isSnippet: Boolean(row.is_snippet),
     snippetName: (row.snippet_name as string | null) ?? null,
-    tags: JSON.parse((row.tags as string) || '[]') as string[],
+    tags: safeParseTags(row.tags),
     createdAt: row.created_at as number,
     updatedAt: row.updated_at as number
   }
@@ -42,7 +65,7 @@ function listRowToItem(row: Record<string, unknown>): ClipListItem {
     isPinned: Boolean(row.is_pinned),
     isSnippet: Boolean(row.is_snippet),
     snippetName: (row.snippet_name as string | null) ?? null,
-    tags: JSON.parse((row.tags as string) || '[]') as string[],
+    tags: safeParseTags(row.tags),
     createdAt: row.created_at as number
   }
 }
@@ -52,6 +75,14 @@ export class ClipRepository {
   readonly imagesDir: string
   readonly thumbsDir: string
 
+  private readonly stmtGetById: Database.Statement
+  private readonly stmtGetByHash: Database.Statement
+  private readonly stmtList: Database.Statement
+  private readonly stmtInsert: Database.Statement
+  private readonly stmtDeletePaths: Database.Statement
+  private readonly stmtDelete: Database.Statement
+  private readonly stmtTogglePin: Database.Statement
+
   constructor(dbPath: string, userDataPath: string) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true })
     this.imagesDir = path.join(userDataPath, 'images')
@@ -60,14 +91,42 @@ export class ClipRepository {
     fs.mkdirSync(this.thumbsDir, { recursive: true })
 
     this.db = new Database(dbPath)
+    // WAL + synchronous=NORMAL: durable enough for an app DB (commits survive
+    // process crash; full power-loss durability would need FULL) while avoiding
+    // the fsync cost of FULL on every transaction.
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('foreign_keys = ON')
+    this.db.pragma('synchronous = NORMAL')
+    this.db.pragma('temp_store = MEMORY')
+    this.db.pragma('cache_size = -64000') // ~64MB page cache
+    this.db.pragma('mmap_size = 67108864') // 64MB mmap if the platform supports it
     this.db.exec(SCHEMA_SQL)
     setupFts(this.db, (key) => this.getMeta(key), (key, value) => this.setMeta(key, value))
+
+    this.stmtGetById = this.db.prepare('SELECT * FROM clips WHERE id = ?')
+    this.stmtGetByHash = this.db.prepare('SELECT * FROM clips WHERE hash = ?')
+    this.stmtList = this.db.prepare(
+      `SELECT ${LIST_COLUMNS} FROM clips ORDER BY is_pinned DESC, created_at DESC LIMIT ? OFFSET ?`
+    )
+    this.stmtInsert = this.db.prepare(
+      `INSERT INTO clips (
+        id, type, hash, preview, text_content, html_content, rtf_content,
+        image_path, thumb_path, file_path, is_pinned, is_snippet, snippet_name,
+        tags, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    this.stmtDeletePaths = this.db.prepare('SELECT image_path, thumb_path FROM clips WHERE id = ?')
+    this.stmtDelete = this.db.prepare('DELETE FROM clips WHERE id = ?')
+    this.stmtTogglePin = this.db.prepare('UPDATE clips SET is_pinned = ?, updated_at = ? WHERE id = ?')
   }
 
   close(): void {
     this.db.close()
+  }
+
+  /** Run `fn` inside a single SQLite transaction (nested calls use savepoints). */
+  runInTransaction<T>(fn: () => T): T {
+    return this.db.transaction(fn)()
   }
 
   getMeta(key: string): string | null {
@@ -87,15 +146,8 @@ export class ClipRepository {
     const now = Date.now()
     const id = input.id ?? crypto.randomUUID()
     const tagsJson = JSON.stringify(input.tags)
-    this.db
-      .prepare(
-        `INSERT INTO clips (
-          id, type, hash, preview, text_content, html_content, rtf_content,
-          image_path, thumb_path, file_path, is_pinned, is_snippet, snippet_name,
-          tags, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
+    runWithFtsRecovery(this.db, () => {
+      this.stmtInsert.run(
         id,
         input.type,
         input.hash,
@@ -113,23 +165,17 @@ export class ClipRepository {
         now,
         now
       )
-    const record = this.getById(id)!
-    const rowid = getClipRowid(this.db, id)
-    if (rowid !== null) {
-      runWithFtsRecovery(this.db, () => {
-        syncFtsRow(this.db, rowid, ftsFieldsFromRecord(record))
-      })
-    }
-    return record
+    })
+    return this.getById(id)!
   }
 
   getById(id: string): ClipRecord | null {
-    const row = this.db.prepare('SELECT * FROM clips WHERE id = ?').get(id)
+    const row = this.stmtGetById.get(id)
     return row ? rowToRecord(row as Record<string, unknown>) : null
   }
 
   getByHash(hash: string): ClipRecord | null {
-    const row = this.db.prepare('SELECT * FROM clips WHERE hash = ?').get(hash)
+    const row = this.stmtGetByHash.get(hash)
     return row ? rowToRecord(row as Record<string, unknown>) : null
   }
 
@@ -141,13 +187,20 @@ export class ClipRepository {
     return this.getById(clip.id)
   }
 
-  getThumbDataUrl(id: string): string | null {
+  resolveThumbPath(id: string): string | null {
     const row = this.db.prepare('SELECT thumb_path FROM clips WHERE id = ?').get(id) as
       | { thumb_path: string | null }
       | undefined
     if (!row?.thumb_path || !fs.existsSync(row.thumb_path)) return null
-    const buf = fs.readFileSync(row.thumb_path)
-    return `data:image/png;base64,${buf.toString('base64')}`
+    return row.thumb_path
+  }
+
+  resolveImagePath(id: string): string | null {
+    const row = this.db.prepare('SELECT image_path FROM clips WHERE id = ?').get(id) as
+      | { image_path: string | null }
+      | undefined
+    if (!row?.image_path || !fs.existsSync(row.image_path)) return null
+    return row.image_path
   }
 
   getListItem(id: string): ClipListItem | null {
@@ -155,31 +208,15 @@ export class ClipRepository {
     return row ? listRowToItem(row as Record<string, unknown>) : null
   }
 
-  getThumbsBatch(ids: string[]): Record<string, string> {
-    if (ids.length === 0) return {}
-    const placeholders = ids.map(() => '?').join(',')
-    const rows = this.db
-      .prepare(`SELECT id, thumb_path FROM clips WHERE id IN (${placeholders}) AND thumb_path IS NOT NULL`)
-      .all(...ids) as { id: string; thumb_path: string }[]
-    const out: Record<string, string> = {}
-    for (const row of rows) {
-      if (!fs.existsSync(row.thumb_path)) continue
-      const buf = fs.readFileSync(row.thumb_path)
-      out[row.id] = `data:image/png;base64,${buf.toString('base64')}`
-    }
-    return out
-  }
-
   list(limit = 50, offset = 0): ClipListItem[] {
-    const rows = this.db
-      .prepare(`SELECT ${LIST_COLUMNS} FROM clips ORDER BY is_pinned DESC, created_at DESC LIMIT ? OFFSET ?`)
-      .all(limit, offset) as Record<string, unknown>[]
+    const rows = this.stmtList.all(limit, offset) as Record<string, unknown>[]
     return rows.map((row) => listRowToItem(row))
   }
 
   search(query: ClipSearchQuery): ClipListItem[] {
     const limit = query.limit ?? 100
     const offset = query.offset ?? 0
+    const sortMode: SearchSortMode = query.sortMode ?? 'hybrid'
     const filters: string[] = []
     const params: unknown[] = []
 
@@ -194,88 +231,109 @@ export class ClipRepository {
       filters.push('c.is_snippet = 1')
     }
     if (query.tag) {
-      filters.push('c.tags LIKE ?')
-      params.push(`%"${query.tag.replace(/"/g, '')}"%`)
+      filters.push(`c.tags LIKE ? ESCAPE '\\'`)
+      params.push(buildTagLikePattern(query.tag))
     }
 
     const text = query.text?.trim()
     const whereBase = filters.length ? filters.join(' AND ') : '1=1'
+    const listCols = LIST_COLUMNS.split(', ')
+      .map((c) => `c.${c}`)
+      .join(', ')
+    const orderRecency = buildSearchOrderBy(sortMode, { hasFtsRank: false })
 
+    // Regex cannot use FTS MATCH: scan ordered rows in batches and paginate over
+    // *matches* (not raw rows). Caps at REGEX_SEARCH_MAX_SCAN rows scanned.
     if (text && query.regex) {
-      try {
-        const re = new RegExp(text, 'i')
-        const sql = `SELECT ${LIST_COLUMNS.split(', ').map((c) => `c.${c}`).join(', ')} FROM clips c WHERE ${whereBase} ORDER BY c.is_pinned DESC, c.created_at DESC LIMIT 500`
-        const rows = this.db.prepare(sql).all(...params) as Record<string, unknown>[]
-        return rows
-          .map((row) => listRowToItem(row))
-          .filter((item) => re.test(item.preview) || re.test(item.snippetName ?? ''))
-          .slice(offset, offset + limit)
-      } catch {
-        /* fall through to FTS */
+      if (isSafeRegexPattern(text)) {
+        try {
+          const re = new RegExp(text, 'i')
+          const batchSize = REGEX_SEARCH_BATCH_SIZE
+          const maxScan = REGEX_SEARCH_MAX_SCAN
+          let scanned = 0
+          let skipped = 0
+          const out: ClipListItem[] = []
+          const sql = `SELECT ${listCols}, c.text_content AS _text FROM clips c WHERE ${whereBase} ORDER BY ${orderRecency} LIMIT ? OFFSET ?`
+          const stmt = this.db.prepare(sql)
+
+          while (scanned < maxScan && out.length < limit) {
+            const rows = stmt.all(...params, batchSize, scanned) as Record<string, unknown>[]
+            if (!rows.length) break
+
+            for (const row of rows) {
+              scanned++
+              const preview = String(row.preview ?? '')
+              const snippet = String(row.snippet_name ?? '')
+              const body = String(row._text ?? '').slice(0, REGEX_TEXT_BODY_LIMIT)
+              if (!matchRegexClipFields(re, preview, snippet, body)) continue
+              if (skipped < offset) {
+                skipped++
+                continue
+              }
+              const { _text: _, ...rest } = row
+              out.push(listRowToItem(rest))
+              if (out.length >= limit) break
+            }
+
+            if (rows.length < batchSize) break
+          }
+
+          return out
+        } catch {
+          /* fall through to FTS */
+        }
       }
     }
 
     if (text) {
       const ftsQuery = buildFtsQuery(text)
-      try {
-        const cols = LIST_COLUMNS.split(', ').map((c) => `c.${c}`).join(', ')
-        const sql = `SELECT ${cols} FROM clips c
-          INNER JOIN clips_fts ON c.rowid = clips_fts.rowid
-          WHERE ${whereBase} AND clips_fts MATCH ?
-          ORDER BY c.is_pinned DESC, c.created_at DESC LIMIT ? OFFSET ?`
-        const rows = this.db.prepare(sql).all(...params, ftsQuery, limit, offset) as Record<string, unknown>[]
-        return rows.map((row) => listRowToItem(row))
-      } catch (err) {
-        log.warn('FTS search failed, falling back to LIKE', err)
-        if (isFtsHealthy(this.db) === false) {
-          rebuildFtsIndex(this.db)
+      if (ftsQuery) {
+        try {
+          const orderFts = buildSearchOrderBy(sortMode, { hasFtsRank: true })
+          const sql = `SELECT ${listCols}, bm25(clips_fts) AS rank FROM clips c
+            INNER JOIN clips_fts ON c.rowid = clips_fts.rowid
+            WHERE ${whereBase} AND clips_fts MATCH ?
+            ORDER BY ${orderFts} LIMIT ? OFFSET ?`
+          const rows = this.db.prepare(sql).all(...params, ftsQuery, limit, offset) as Record<
+            string,
+            unknown
+          >[]
+          return rows.map((row) => {
+            const { rank: _, ...rest } = row
+            return listRowToItem(rest)
+          })
+        } catch (err) {
+          log.warn('FTS search failed, falling back to LIKE', err)
+          if (isFtsHealthy(this.db) === false) {
+            rebuildFtsIndex(this.db)
+          }
         }
-        const like = `%${text}%`
-        const cols = LIST_COLUMNS.split(', ').map((c) => `c.${c}`).join(', ')
-        const sql = `SELECT ${cols} FROM clips c WHERE ${whereBase}
-          AND (c.preview LIKE ? OR c.text_content LIKE ? OR c.snippet_name LIKE ? OR c.tags LIKE ?)
-          ORDER BY c.is_pinned DESC, c.created_at DESC LIMIT ? OFFSET ?`
-        const rows = this.db.prepare(sql).all(...params, like, like, like, like, limit, offset) as Record<
-          string,
-          unknown
-        >[]
-        return rows.map((row) => listRowToItem(row))
       }
+
+      const like = `%${text.replace(/([%_\\])/g, '\\$1')}%`
+      const sql = `SELECT ${listCols} FROM clips c WHERE ${whereBase}
+        AND (c.preview LIKE ? ESCAPE '\\' OR c.text_content LIKE ? ESCAPE '\\'
+          OR c.snippet_name LIKE ? ESCAPE '\\' OR c.tags LIKE ? ESCAPE '\\')
+        ORDER BY ${orderRecency} LIMIT ? OFFSET ?`
+      const rows = this.db.prepare(sql).all(...params, like, like, like, like, limit, offset) as Record<
+        string,
+        unknown
+      >[]
+      return rows.map((row) => listRowToItem(row))
     }
 
-    const cols = LIST_COLUMNS.split(', ').map((c) => `c.${c}`).join(', ')
-    const sql = `SELECT ${cols} FROM clips c WHERE ${whereBase} ORDER BY c.is_pinned DESC, c.created_at DESC LIMIT ? OFFSET ?`
+    const sql = `SELECT ${listCols} FROM clips c WHERE ${whereBase} ORDER BY ${orderRecency} LIMIT ? OFFSET ?`
     const rows = this.db.prepare(sql).all(...params, limit, offset) as Record<string, unknown>[]
     return rows.map((row) => listRowToItem(row))
   }
 
-  private toListItemFromRow(row: Record<string, unknown>): ClipListItem {
-    if ('text_content' in row) {
-      const record = rowToRecord(row)
-      return listRowToItem({
-        id: record.id,
-        type: record.type,
-        hash: record.hash,
-        preview: record.preview,
-        thumb_path: record.thumbPath,
-        is_pinned: record.isPinned ? 1 : 0,
-        is_snippet: record.isSnippet ? 1 : 0,
-        snippet_name: record.snippetName,
-        tags: JSON.stringify(record.tags),
-        created_at: record.createdAt
-      })
-    }
-    return listRowToItem(row)
-  }
-
   delete(id: string): void {
-    const row = this.db.prepare('SELECT rowid, image_path, thumb_path FROM clips WHERE id = ?').get(id) as
-      | { rowid: number; image_path: string | null; thumb_path: string | null }
+    const row = this.stmtDeletePaths.get(id) as
+      | { image_path: string | null; thumb_path: string | null }
       | undefined
     if (!row) return
-    this.db.prepare('DELETE FROM clips WHERE id = ?').run(id)
     runWithFtsRecovery(this.db, () => {
-      deleteFtsRow(this.db, row.rowid)
+      this.stmtDelete.run(id)
     })
     if (row.image_path && fs.existsSync(row.image_path)) fs.unlinkSync(row.image_path)
     if (row.thumb_path && fs.existsSync(row.thumb_path)) fs.unlinkSync(row.thumb_path)
@@ -285,9 +343,7 @@ export class ClipRepository {
     const clip = this.getById(id)
     if (!clip) return null
     const isPinned = !clip.isPinned
-    this.db
-      .prepare('UPDATE clips SET is_pinned = ?, updated_at = ? WHERE id = ?')
-      .run(isPinned ? 1 : 0, Date.now(), id)
+    this.stmtTogglePin.run(isPinned ? 1 : 0, Date.now(), id)
     return this.getById(id)
   }
 
@@ -295,47 +351,37 @@ export class ClipRepository {
     const clip = this.getById(id)
     if (!clip) return null
     const isSnippet = !clip.isSnippet
-    this.db
-      .prepare('UPDATE clips SET is_snippet = ?, snippet_name = ?, updated_at = ? WHERE id = ?')
-      .run(isSnippet ? 1 : 0, isSnippet ? snippetName ?? clip.preview.slice(0, 40) : null, Date.now(), id)
-    const updated = this.getById(id)!
-    const rowid = getClipRowid(this.db, id)
-    if (rowid !== null) {
-      runWithFtsRecovery(this.db, () => {
-        syncFtsRow(this.db, rowid, ftsFieldsFromRecord(updated))
-      })
-    }
-    return updated
+    runWithFtsRecovery(this.db, () => {
+      this.db
+        .prepare('UPDATE clips SET is_snippet = ?, snippet_name = ?, updated_at = ? WHERE id = ?')
+        .run(isSnippet ? 1 : 0, isSnippet ? snippetName ?? clip.preview.slice(0, 40) : null, Date.now(), id)
+    })
+    return this.getById(id)!
   }
 
   updateTags(id: string, tags: string[]): ClipRecord | null {
-    this.db
-      .prepare('UPDATE clips SET tags = ?, updated_at = ? WHERE id = ?')
-      .run(JSON.stringify(tags), Date.now(), id)
-    const updated = this.getById(id)
-    if (!updated) return null
-    const rowid = getClipRowid(this.db, id)
-    if (rowid !== null) {
-      runWithFtsRecovery(this.db, () => {
-        syncFtsRow(this.db, rowid, ftsFieldsFromRecord(updated))
-      })
-    }
-    return updated
+    runWithFtsRecovery(this.db, () => {
+      this.db
+        .prepare('UPDATE clips SET tags = ?, updated_at = ? WHERE id = ?')
+        .run(JSON.stringify(tags), Date.now(), id)
+    })
+    return this.getById(id)
   }
 
   clearUnpinned(): number {
-    const rows = this.db
-      .prepare('SELECT id, image_path, thumb_path FROM clips WHERE is_pinned = 0 AND is_snippet = 0')
-      .all() as { id: string; image_path: string | null; thumb_path: string | null }[]
-    for (const row of rows) {
-      if (row.image_path && fs.existsSync(row.image_path)) fs.unlinkSync(row.image_path)
-      if (row.thumb_path && fs.existsSync(row.thumb_path)) fs.unlinkSync(row.thumb_path)
-    }
-    const count = this.db.prepare('DELETE FROM clips WHERE is_pinned = 0 AND is_snippet = 0').run().changes
-    runWithFtsRecovery(this.db, () => {
-      rebuildFtsIndex(this.db)
+    return this.runInTransaction(() => {
+      const rows = this.db
+        .prepare('SELECT id, image_path, thumb_path FROM clips WHERE is_pinned = 0 AND is_snippet = 0')
+        .all() as { id: string; image_path: string | null; thumb_path: string | null }[]
+      const changes = runWithFtsRecovery(this.db, () =>
+        this.db.prepare('DELETE FROM clips WHERE is_pinned = 0 AND is_snippet = 0').run().changes
+      )
+      for (const row of rows) {
+        if (row.image_path && fs.existsSync(row.image_path)) fs.unlinkSync(row.image_path)
+        if (row.thumb_path && fs.existsSync(row.thumb_path)) fs.unlinkSync(row.thumb_path)
+      }
+      return changes
     })
-    return count
   }
 
   trimHistory(maxHistory: number): void {
@@ -351,21 +397,17 @@ export class ClipRepository {
          ORDER BY created_at ASC LIMIT ?`
       )
       .all(excess) as { id: string; image_path: string | null; thumb_path: string | null }[]
+    runWithFtsRecovery(this.db, () => {
+      this.runInTransaction(() => {
+        for (const row of oldRows) {
+          this.stmtDelete.run(row.id)
+        }
+      })
+    })
     for (const row of oldRows) {
       if (row.image_path && fs.existsSync(row.image_path)) fs.unlinkSync(row.image_path)
       if (row.thumb_path && fs.existsSync(row.thumb_path)) fs.unlinkSync(row.thumb_path)
-      this.db.prepare('DELETE FROM clips WHERE id = ?').run(row.id)
     }
-    runWithFtsRecovery(this.db, () => {
-      rebuildFtsIndex(this.db)
-    })
-  }
-
-  getRecent(limit: number): ClipRecord[] {
-    const rows = this.db
-      .prepare('SELECT * FROM clips ORDER BY created_at DESC LIMIT ?')
-      .all(limit) as Record<string, unknown>[]
-    return rows.map((row) => rowToRecord(row))
   }
 
   getAllRecords(): ClipRecord[] {
@@ -382,8 +424,30 @@ export class ClipRepository {
   }
 
   readImageAsDataUrl(imagePath: string): string {
-    const buf = fs.readFileSync(imagePath)
-    return `data:image/png;base64,${buf.toString('base64')}`
+    if (!isUnderDir(imagePath, this.imagesDir)) return ''
+
+    let realPath: string
+    try {
+      realPath = fs.realpathSync(imagePath)
+    } catch {
+      return ''
+    }
+
+    let realDir: string
+    try {
+      realDir = fs.realpathSync(this.imagesDir)
+    } catch {
+      realDir = path.resolve(this.imagesDir)
+    }
+
+    if (!isUnderDir(realPath, realDir)) return ''
+
+    try {
+      const buf = fs.readFileSync(realPath)
+      return `data:image/png;base64,${buf.toString('base64')}`
+    } catch {
+      return ''
+    }
   }
 }
 
@@ -422,12 +486,18 @@ export class SettingsRepository {
   }
 }
 
-export function createDatabase(): { clipRepo: ClipRepository; settingsRepo: SettingsRepository } {
+export function createDatabase(): {
+  clipRepo: ClipRepository
+  settingsRepo: SettingsRepository
+  todoRepo: TodoRepository
+} {
   const userData = app.getPath('userData')
   const dbPath = path.join(userData, 'clippy.db')
   const clipRepo = new ClipRepository(dbPath, userData)
   const settingsRepo = new SettingsRepository(clipRepo.db)
-  return { clipRepo, settingsRepo }
+  const todoRepo = new TodoRepository(clipRepo.db)
+  todoRepo.ensureDefaults()
+  return { clipRepo, settingsRepo, todoRepo }
 }
 
 export function importLegacyV1(clipRepo: ClipRepository): number {
@@ -442,55 +512,57 @@ export function importLegacyV1(clipRepo: ClipRepository): number {
   try {
     const raw = JSON.parse(fs.readFileSync(legacyPath, 'utf8')) as Record<string, unknown>
     const items = (raw['Items Main'] ?? []) as Array<Record<string, unknown>>
-    let imported = 0
+    const imported = clipRepo.runInTransaction(() => {
+      let count = 0
+      for (const item of items) {
+        const hash = String(item.hash ?? '')
+        if (!hash || clipRepo.getByHash(hash)) continue
 
-    for (const item of items) {
-      const hash = String(item.hash ?? '')
-      if (!hash || clipRepo.getByHash(hash)) continue
-
-      if (item.type === 'text') {
-        const text = String(item.text ?? '')
-        clipRepo.insertClip({
-          type: 'text',
-          hash,
-          preview: text.length > 255 ? `${text.slice(0, 255)}…` : text,
-          textContent: text,
-          htmlContent: (item.html as string) ?? null,
-          rtfContent: (item.rtf as string) ?? null,
-          imagePath: null,
-          thumbPath: null,
-          filePath: null,
-          isPinned: false,
-          isSnippet: false,
-          snippetName: null,
-          tags: []
-        })
-        imported++
-      } else if (item.type === 'image') {
-        const dataUrl = String(item.buffer ?? '')
-        const thumbUrl = String(item.thumbBuffer ?? '')
-        if (!dataUrl.startsWith('data:')) continue
-        const imageBuffer = Buffer.from(dataUrl.split(',')[1] ?? '', 'base64')
-        const thumbBuffer = Buffer.from(thumbUrl.split(',')[1] ?? '', 'base64')
-        const { imagePath, thumbPath } = clipRepo.saveImageFiles(hash, imageBuffer, thumbBuffer)
-        clipRepo.insertClip({
-          type: 'image',
-          hash,
-          preview: 'Image',
-          textContent: null,
-          htmlContent: null,
-          rtfContent: null,
-          imagePath,
-          thumbPath,
-          filePath: null,
-          isPinned: false,
-          isSnippet: false,
-          snippetName: null,
-          tags: []
-        })
-        imported++
+        if (item.type === 'text') {
+          const text = String(item.text ?? '')
+          clipRepo.insertClip({
+            type: 'text',
+            hash,
+            preview: text.length > 255 ? `${text.slice(0, 255)}…` : text,
+            textContent: text,
+            htmlContent: (item.html as string) ?? null,
+            rtfContent: (item.rtf as string) ?? null,
+            imagePath: null,
+            thumbPath: null,
+            filePath: null,
+            isPinned: false,
+            isSnippet: false,
+            snippetName: null,
+            tags: []
+          })
+          count++
+        } else if (item.type === 'image') {
+          const dataUrl = String(item.buffer ?? '')
+          const thumbUrl = String(item.thumbBuffer ?? '')
+          if (!dataUrl.startsWith('data:')) continue
+          const imageBuffer = Buffer.from(dataUrl.split(',')[1] ?? '', 'base64')
+          const thumbBuffer = Buffer.from(thumbUrl.split(',')[1] ?? '', 'base64')
+          const { imagePath, thumbPath } = clipRepo.saveImageFiles(hash, imageBuffer, thumbBuffer)
+          clipRepo.insertClip({
+            type: 'image',
+            hash,
+            preview: 'Image',
+            textContent: null,
+            htmlContent: null,
+            rtfContent: null,
+            imagePath,
+            thumbPath,
+            filePath: null,
+            isPinned: false,
+            isSnippet: false,
+            snippetName: null,
+            tags: []
+          })
+          count++
+        }
       }
-    }
+      return count
+    })
 
     clipRepo.setMeta('v1_migrated', 'true')
     log.info(`Imported ${imported} clips from v1`)

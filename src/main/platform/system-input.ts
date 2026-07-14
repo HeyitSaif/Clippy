@@ -1,9 +1,13 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import log from 'electron-log'
-import { runAppleScript } from 'run-applescript'
 
 const execFileAsync = promisify(execFile)
+
+async function runAppleScript(script: string): Promise<string> {
+  const { stdout } = await execFileAsync('osascript', ['-e', script], { timeout: 8000 })
+  return stdout
+}
 
 export type ClippyPlatform = NodeJS.Platform
 

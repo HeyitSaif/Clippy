@@ -4,7 +4,6 @@ import { ClipPreview } from "../components/ClipPreview";
 import { Toast } from "../components/Toast";
 import { IconSearch, IconTag, IconX } from "../components/icons";
 import { useClips, type ClipFilter } from "../hooks/useClips";
-import { useThumbCache } from "../hooks/useThumbCache";
 import { useToast } from "../hooks/useToast";
 import { cn } from "../lib/utils";
 
@@ -12,6 +11,7 @@ const FILTERS: { id: ClipFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "text", label: "Text" },
   { id: "image", label: "Img" },
+  { id: "file", label: "File" },
   { id: "pinned", label: "Pin" },
   { id: "snippet", label: "Snip" },
 ];
@@ -20,21 +20,31 @@ const EMPTY: Record<ClipFilter, string> = {
   all: "Copy something — it'll show up here",
   text: "No text clips",
   image: "No image clips",
+  file: "No file clips",
   pinned: "No pinned clips",
   snippet: "No snippets yet",
 };
 
 export function ClipboardTab() {
-  const { clips, loading, query, setQuery, filter, setFilter, refresh } =
-    useClips();
+  const {
+    clips,
+    loading,
+    query,
+    setQuery,
+    filter,
+    setFilter,
+    loadMore,
+    togglePin,
+    toggleSnippet,
+    deleteClip,
+    updateTags,
+  } = useClips();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
-  const [visibleThumbIds, setVisibleThumbIds] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const tagRef = useRef<HTMLInputElement>(null);
   const { message, show } = useToast();
-  const thumbs = useThumbCache(visibleThumbIds);
 
   const selectedClip = useMemo(
     () => clips.find((c) => c.id === selectedId) ?? null,
@@ -83,40 +93,28 @@ export function ClipboardTab() {
 
   const handleTogglePin = useCallback(
     async (id: string) => {
-      try {
-        await window.clippy.togglePin(id);
-        await refresh();
-      } catch {
-        show("Action failed — restart Clippy");
-      }
+      const ok = await togglePin(id);
+      if (!ok) show("Action failed — restart Clippy");
     },
-    [refresh, show],
+    [togglePin, show],
   );
 
   const handleToggleSnippet = useCallback(
     async (id: string) => {
-      try {
-        await window.clippy.toggleSnippet(id);
-        await refresh();
-        show("Snippet updated");
-      } catch {
-        show("Action failed — restart Clippy");
-      }
+      const ok = await toggleSnippet(id);
+      if (ok) show("Snippet updated");
+      else show("Action failed — restart Clippy");
     },
-    [refresh, show],
+    [toggleSnippet, show],
   );
 
   const handleDelete = useCallback(
     async (id: string) => {
-      try {
-        await window.clippy.deleteClip(id);
-        await refresh();
-        show("Deleted");
-      } catch {
-        show("Delete failed — restart Clippy");
-      }
+      const ok = await deleteClip(id);
+      if (ok) show("Deleted");
+      else show("Delete failed — restart Clippy");
     },
-    [refresh, show],
+    [deleteClip, show],
   );
 
   const handleAddTag = useCallback(
@@ -127,40 +125,25 @@ export function ClipboardTab() {
         setTagInput("");
         return;
       }
-      try {
-        await window.clippy.updateTags(selectedClip.id, [
-          ...selectedClip.tags,
-          tag,
-        ]);
-        await refresh();
-        setTagInput("");
-        show("Tag added");
-      } catch {
-        show("Tag failed — restart Clippy");
-      }
+      const ok = await updateTags(selectedClip.id, [...selectedClip.tags, tag]);
+      setTagInput("");
+      if (ok) show("Tag added");
+      else show("Tag failed — restart Clippy");
     },
-    [selectedClip, refresh, show],
+    [selectedClip, updateTags, show],
   );
 
   const handleRemoveTag = useCallback(
     async (tag: string) => {
       if (!selectedClip) return;
-      try {
-        await window.clippy.updateTags(
-          selectedClip.id,
-          selectedClip.tags.filter((t) => t !== tag),
-        );
-        await refresh();
-      } catch {
-        show("Tag failed — restart Clippy");
-      }
+      const ok = await updateTags(
+        selectedClip.id,
+        selectedClip.tags.filter((t) => t !== tag),
+      );
+      if (!ok) show("Tag failed — restart Clippy");
     },
-    [selectedClip, refresh, show],
+    [selectedClip, updateTags, show],
   );
-
-  const onVisibleIdsChange = useCallback((ids: string[]) => {
-    setVisibleThumbIds(ids);
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -257,6 +240,10 @@ export function ClipboardTab() {
     previewId,
   ]);
 
+  const handleNearEnd = useCallback(() => {
+    void loadMore();
+  }, [loadMore]);
+
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
       <div className="no-drag toolbar shrink-0">
@@ -349,7 +336,6 @@ export function ClipboardTab() {
           clips={clips}
           selectedId={selectedId}
           searchQuery={query}
-          thumbs={thumbs}
           onSelect={setSelectedId}
           onCopy={handleCopy}
           onPaste={handlePaste}
@@ -357,7 +343,7 @@ export function ClipboardTab() {
           onToggleSnippet={handleToggleSnippet}
           onDelete={handleDelete}
           onPreview={setPreviewId}
-          onVisibleIdsChange={onVisibleIdsChange}
+          onNearEnd={handleNearEnd}
         />
       )}
 

@@ -6,12 +6,15 @@
   "author": "Saif",
   "license": "GPL-3.0-or-later",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "dev": "npm run rebuild:native && electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "rebuild:native": "electron-builder install-app-deps",
     "postinstall": "electron-builder install-app-deps",
-    "dist": "npm run build && electron-builder --mac",
+    "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
@@ -21,32 +24,27 @@
     "dist:publish": "npm run build && electron-builder --mac --publish always"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.2",
-    "@electron-toolkit/utils": "^4.0.0",
-    "@tanstack/react-virtual": "^3.13.24",
-    "better-sqlite3": "^12.10.0",
+    "@tanstack/react-virtual": "^3.14.6",
+    "better-sqlite3": "^12.11.1",
     "clsx": "^2.1.1",
     "electron-log": "^5.4.4",
-    "run-applescript": "^7.0.0",
-    "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.0",
+    "@tailwindcss/vite": "^4.3.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.2",
-    "electron": "^41.6.1",
-    "electron-builder": "^26.8.1",
-    "electron-builder-squirrel-windows": "^26.8.1",
+    "@vitejs/plugin-react": "^6.0.3",
+    "electron": "^41.10.1",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0-beta.1",
-    "esbuild": "^0.28.0",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "tailwindcss": "^4.3.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
-    "vite": "^8.0.13"
+    "vite": "^8.1.4",
+    "vitest": "^3.2.7"
   },
   "build": {
     "appId": "com.clippy.app",
@@ -58,6 +56,9 @@
       "out/**/*",
       "resources/**/*"
     ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ],
     "extraResources": [
       {
         "from": "resources",
@@ -66,6 +67,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
       "target": [
         "dmg",
         "zip"
@@ -75,12 +77,14 @@
       "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
+      "icon": "build/icon.png",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": [
         "AppImage",
         "deb"

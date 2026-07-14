@@ -65,7 +65,11 @@ export function SettingsModal({
         <div className="settings-body">
           {accessibilityStatus?.supported && (
             <>
-              <SettingRow label={platform === "linux" ? "Auto-paste tools" : "Accessibility"}>
+              <SettingRow
+                label={
+                  platform === "linux" ? "Auto-paste tools" : "Accessibility"
+                }
+              >
                 <div className="flex items-center gap-2">
                   <span
                     className={
@@ -104,10 +108,21 @@ export function SettingsModal({
             />
           </SettingRow>
           <p className="settings-hint px-0.5 pb-1">
-            {pasteSlotLabel} global paste slots.
+            Panel only: when on, Enter/click pastes into the last app; when off,
+            it only copies.
+          </p>
+          <SettingRow label="Global paste slots">
+            <MiniToggle
+              checked={settings.globalPasteSlots ?? true}
+              onChange={(v) => void onUpdate({ globalPasteSlots: v })}
+            />
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            Register {pasteSlotLabel} to paste history items 1–9 from anywhere.
             {isMac
               ? " macOS uses ⌘⌃ instead of ⌘⌥ for reliable global shortcuts."
-              : " Uses Ctrl+Alt on Windows and Linux."}
+              : " Uses Ctrl+Alt on Windows and Linux."}{" "}
+            Turn off to unregister those shortcuts.
           </p>
           <SettingRow label="Hide on blur">
             <MiniToggle
@@ -123,6 +138,30 @@ export function SettingsModal({
           </SettingRow>
 
           <div className="settings-divider" />
+
+          <SettingRow label="Search sort">
+            <select
+              value={settings.searchSortMode ?? "hybrid"}
+              onChange={(e) =>
+                void onUpdate({
+                  searchSortMode: e.target.value as
+                    | "hybrid"
+                    | "relevance"
+                    | "recency",
+                })
+              }
+              className="settings-input"
+              style={{ width: 110, textAlign: "left" }}
+            >
+              <option value="hybrid">Hybrid</option>
+              <option value="relevance">Relevance</option>
+              <option value="recency">Recency</option>
+            </select>
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            Hybrid and relevance rank by match quality (pinned first). Recency
+            is newest-first. Ties fall back to newest.
+          </p>
 
           <SettingRow label="Max history">
             <input
@@ -142,6 +181,107 @@ export function SettingsModal({
               value={settings.toggleShortcut}
               onChange={(accel) => void onUpdate({ toggleShortcut: accel })}
               error={hotkeyError}
+            />
+          </SettingRow>
+
+          <div className="settings-divider" />
+
+          <p className="settings-section-label">Todos</p>
+
+          <SettingRow label="Show completed">
+            <MiniToggle
+              checked={settings.todoShowCompleted ?? true}
+              onChange={(v) => void onUpdate({ todoShowCompleted: v })}
+            />
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            When off, completed tasks are hidden in the All filter.
+          </p>
+
+          <SettingRow label="Reminders">
+            <MiniToggle
+              checked={settings.todoRemindersEnabled ?? true}
+              onChange={(v) => void onUpdate({ todoRemindersEnabled: v })}
+            />
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            System notifications when a task reminder time is reached.
+          </p>
+
+          <SettingRow label="Auto-rotate lists">
+            <MiniToggle
+              checked={settings.todoRotateEnabled ?? true}
+              onChange={(v) => void onUpdate({ todoRotateEnabled: v })}
+            />
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            Clear completed Daily and Weekly tasks at the rotate hour.
+          </p>
+
+          <SettingRow label="Rotate hour">
+            <select
+              value={settings.todoRotateHour ?? 0}
+              onChange={(e) =>
+                void onUpdate({ todoRotateHour: Number(e.target.value) })
+              }
+              className="settings-input"
+              style={{ width: 110, textAlign: "left" }}
+            >
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {h === 0
+                    ? "12 AM"
+                    : h < 12
+                      ? `${h} AM`
+                      : h === 12
+                        ? "12 PM"
+                        : `${h - 12} PM`}
+                </option>
+              ))}
+            </select>
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            Local time when Daily and Weekly lists roll over.
+          </p>
+
+          <div className="settings-divider" />
+
+          <p className="settings-section-label">Todos</p>
+          <SettingRow label="Show completed">
+            <MiniToggle
+              checked={settings.todoShowCompleted ?? true}
+              onChange={(v) => void onUpdate({ todoShowCompleted: v })}
+            />
+          </SettingRow>
+          <SettingRow label="Enable reminders">
+            <MiniToggle
+              checked={settings.todoRemindersEnabled ?? true}
+              onChange={(v) => void onUpdate({ todoRemindersEnabled: v })}
+            />
+          </SettingRow>
+          <SettingRow label="Auto-rotate daily/weekly">
+            <MiniToggle
+              checked={settings.todoRotateEnabled ?? true}
+              onChange={(v) => void onUpdate({ todoRotateEnabled: v })}
+            />
+          </SettingRow>
+          <p className="settings-hint px-0.5 pb-1">
+            At the rotate hour, incomplete Daily tasks roll forward; completed
+            are archived. Weekly list rolls on the boundary week.
+          </p>
+          <SettingRow label="Rotate hour (0–23)">
+            <input
+              type="number"
+              min={0}
+              max={23}
+              value={settings.todoRotateHour ?? 0}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isNaN(n)) return;
+                const clamped = Math.max(0, Math.min(23, Math.round(n)));
+                void onUpdate({ todoRotateHour: clamped });
+              }}
+              className="settings-input settings-input-narrow"
             />
           </SettingRow>
 

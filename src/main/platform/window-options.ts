@@ -17,7 +17,8 @@ export function getMainWindowOptions(preloadPath: string): BrowserWindowConstruc
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      webSecurity: true
     }
   }
 

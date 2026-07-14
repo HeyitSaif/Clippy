@@ -2,9 +2,6 @@ export const IPC = {
   CLIPS_LIST: 'clips:list',
   CLIPS_SEARCH: 'clips:search',
   CLIPS_GET: 'clips:get',
-  CLIPS_GET_IMAGE: 'clips:get-image',
-  CLIPS_GET_THUMB: 'clips:get-thumb',
-  CLIPS_GET_THUMBS: 'clips:get-thumbs',
   CLIPS_GET_LIST_ITEM: 'clips:get-list-item',
   CLIPS_COPY: 'clips:copy',
   CLIPS_PASTE: 'clips:paste',
@@ -24,7 +21,18 @@ export const IPC = {
   APP_GET_VERSION: 'app:get-version',
   APP_GET_PLATFORM: 'app:get-platform',
   ACCESSIBILITY_GET_STATUS: 'accessibility:get-status',
-  ACCESSIBILITY_REQUEST: 'accessibility:request'
+  ACCESSIBILITY_REQUEST: 'accessibility:request',
+  TODOS_LIST_LISTS: 'todos:list-lists',
+  TODOS_CREATE_LIST: 'todos:create-list',
+  TODOS_RENAME_LIST: 'todos:rename-list',
+  TODOS_DELETE_LIST: 'todos:delete-list',
+  TODOS_LIST: 'todos:list',
+  TODOS_GET: 'todos:get',
+  TODOS_CREATE: 'todos:create',
+  TODOS_UPDATE: 'todos:update',
+  TODOS_TOGGLE_COMPLETE: 'todos:toggle-complete',
+  TODOS_DELETE: 'todos:delete',
+  TODOS_REORDER: 'todos:reorder'
 } as const
 
 export const IPC_EVENTS = {
@@ -32,5 +40,6 @@ export const IPC_EVENTS = {
   CLIP_ADDED: 'clip:added',
   SETTINGS_CHANGED: 'settings:changed',
   WINDOW_FOCUSED: 'window:focused',
-  ACCESSIBILITY_REQUIRED: 'accessibility:required'
+  ACCESSIBILITY_REQUIRED: 'accessibility:required',
+  TODOS_UPDATED: 'todos:updated'
 } as const
