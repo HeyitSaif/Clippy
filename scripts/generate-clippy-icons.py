@@ -12,33 +12,27 @@ import urllib.request
 
 MODEL = "gemini-3.1-flash-lite-image"
 
-APP_PROMPT = """Design a premium 2026 macOS app icon for "Clippy" — a clipboard manager with personality.
+APP_PROMPT = """Premium 2026 macOS app icon for Clippy clipboard manager.
 
-Concept (human-form tech clipboard, Clippy vibe):
-- An anthropomorphic tech clipboard character: friendly, slightly cheeky assistant energy (nod to classic Clippy) but fully modern 2026 — NOT Microsoft Clippy, NOT a paperclip face, NO eyes on a paperclip
-- Form: sleek clipboard body as a character silhouette — rounded board, soft metallic/glass clip as a "head" accent, subtle paper sheet like a torso/face plane, optional tiny limbs or posture that reads as helpful assistant without being cartoon-mascot clutter
-- Feel: human-adjacent tech companion — warm, approachable, smart productivity tool; like a future OS utility icon with soul
+Subject: anthropomorphic tech clipboard character with Clippy personality — dark charcoal clipboard body, silver metal clip on top, cream paper face with tiny friendly smile/eyes (cute but modern, not childish), glowing cyan checkmark on the paper, small subtle arms in a helpful pose.
 
-Style:
-- Square macOS Big Sur+ app icon, soft rounded-square composition, centered, generous padding
-- Soft 3D / refined product render, premium glass + matte materials, subtle depth
-- Palette: deep charcoal/slate clipboard, warm cream paper, single vivid teal/cyan accent spark or check (paste energy). Cool slate-to-teal mist gradient background
-- High contrast silhouette readable at 16–32px
-- NO text, NO letters, NO watermark, NO Microsoft branding, NO literal googly-eyed paperclip
+CRITICAL composition rules:
+- The ENTIRE canvas IS the app icon. Full-bleed rounded-square icon.
+- Soft cool slate-to-teal mist gradient INSIDE the icon only.
+- NO photo backgrounds, NO desk, NO landscape, NO floating icon on a scene, NO outer margin with scenery.
+- Soft 3D product render, premium materials, readable at small sizes.
+- NO text, NO watermark, NO Microsoft paperclip mascot."""
 
-Output one polished square icon."""
+TRAY_PROMPT = """macOS menu bar tray template icon.
 
-TRAY_PROMPT = """Design a macOS menu-bar tray template icon for "Clippy", a clipboard manager.
+Draw a SIMPLE black silhouette of a friendly clipboard character (board + top clip + tiny arms optional) centered on a PURE FLAT WHITE (#FFFFFF) background.
 
-Requirements:
-- Pure black silhouette (#000000) on fully transparent background
-- Anthropomorphic clipboard silhouette: board + top clip, simple friendly character posture readable as Clippy-vibe helper (NOT a paperclip with eyes)
-- Thick strokes, solid black only — no gray, no color, no soft glow
-- Extremely readable at 16–22px in the macOS menu bar
-- Square canvas, centered, generous padding
-- NO text, NO letters, NO shadows
-
-This will be used as Electron trayTemplate.png (template image)."""
+Rules:
+- Solid pure black (#000000) shapes only
+- Flat white background (NO checkerboard, NO transparency pattern, NO gray)
+- Thick strokes, readable at 16px
+- Square, centered, padding
+- NO color, NO gradients, NO text"""
 
 
 def load_key() -> str:

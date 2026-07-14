@@ -68,9 +68,42 @@ typings/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+
+# dotenv / secrets — never commit
 .env
-.env.test
+.env.*
+!.env.example
+!.env.*.example
+*.env
+*.env.local
+*.env.backup
+*.env.bak
+*.env.old
+*.env.tmp
+.envrc
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.p12
+*.pfx
+*.key
+!*.key.ts
+!*.key.tsx
+!*.key.js
+id_rsa
+id_ed25519
+credentials.json
+**/secrets/**
+**/.secrets/**
+cli-secrets.env
+.cli-secrets.env
+**/*secrets.env
+**/api-keys.json
+**/service-account*.json
+google-services.json
+GoogleService-Info.plist
 
 # Local MCP config (may contain API tokens)
 .tmp-mcp.json

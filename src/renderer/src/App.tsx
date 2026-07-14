@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "./lib/utils";
 import { ClipboardTab } from "./tabs/ClipboardTab";
 import { TodoTab } from "./tabs/TodoTab";
@@ -19,9 +19,20 @@ const TABS: { id: Tab; label: string }[] = [
 export default function App() {
   const [tab, setTab] = useState<Tab>("clipboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reminderFocus, setReminderFocus] = useState<{
+    todoId: string;
+    listId: string;
+  } | null>(null);
   const { settings, update, hotkeyError } = useSettings();
   const { needsAccess, requesting, requestAccess, status } = useAccessibility();
   const { isMac, pasteSlotLabel } = usePlatform();
+
+  useEffect(() => {
+    return window.clippy.onTodoReminder((payload) => {
+      setTab("todo");
+      setReminderFocus(payload);
+    });
+  }, []);
 
   return (
     <div className="app-backdrop">
@@ -62,7 +73,14 @@ export default function App() {
               onEnable={requestAccess}
             />
           )}
-          {tab === "clipboard" ? <ClipboardTab /> : <TodoTab />}
+          {tab === "clipboard" ? (
+            <ClipboardTab />
+          ) : (
+            <TodoTab
+              reminderFocus={reminderFocus}
+              onReminderFocusHandled={() => setReminderFocus(null)}
+            />
+          )}
         </main>
 
         <footer className="drag-region app-footer">

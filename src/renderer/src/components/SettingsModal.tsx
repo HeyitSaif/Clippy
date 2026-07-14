@@ -246,47 +246,6 @@ export function SettingsModal({
 
           <div className="settings-divider" />
 
-          <p className="settings-section-label">Todos</p>
-          <SettingRow label="Show completed">
-            <MiniToggle
-              checked={settings.todoShowCompleted ?? true}
-              onChange={(v) => void onUpdate({ todoShowCompleted: v })}
-            />
-          </SettingRow>
-          <SettingRow label="Enable reminders">
-            <MiniToggle
-              checked={settings.todoRemindersEnabled ?? true}
-              onChange={(v) => void onUpdate({ todoRemindersEnabled: v })}
-            />
-          </SettingRow>
-          <SettingRow label="Auto-rotate daily/weekly">
-            <MiniToggle
-              checked={settings.todoRotateEnabled ?? true}
-              onChange={(v) => void onUpdate({ todoRotateEnabled: v })}
-            />
-          </SettingRow>
-          <p className="settings-hint px-0.5 pb-1">
-            At the rotate hour, incomplete Daily tasks roll forward; completed
-            are archived. Weekly list rolls on the boundary week.
-          </p>
-          <SettingRow label="Rotate hour (0–23)">
-            <input
-              type="number"
-              min={0}
-              max={23}
-              value={settings.todoRotateHour ?? 0}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                if (Number.isNaN(n)) return;
-                const clamped = Math.max(0, Math.min(23, Math.round(n)));
-                void onUpdate({ todoRotateHour: clamped });
-              }}
-              className="settings-input settings-input-narrow"
-            />
-          </SettingRow>
-
-          <div className="settings-divider" />
-
           <label className="settings-stacked-label">
             <span>Ignore patterns (regex per line)</span>
             <textarea

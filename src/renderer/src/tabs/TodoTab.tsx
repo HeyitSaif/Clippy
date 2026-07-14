@@ -77,7 +77,13 @@ function fromDatetimeLocal(value: string): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-export function TodoTab() {
+export function TodoTab({
+  reminderFocus,
+  onReminderFocusHandled,
+}: {
+  reminderFocus?: { todoId: string; listId: string } | null;
+  onReminderFocusHandled?: () => void;
+} = {}) {
   const {
     lists,
     todos,
@@ -109,6 +115,7 @@ export function TodoTab() {
   const addRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const newListRef = useRef<HTMLInputElement>(null);
+  const pendingReminderTodoId = useRef<string | null>(null);
   const { message, show } = useToast();
 
   const visibleFilters = useMemo(
@@ -122,14 +129,45 @@ export function TodoTab() {
   );
 
   useEffect(() => {
+    if (!reminderFocus) return;
+    pendingReminderTodoId.current = reminderFocus.todoId;
+    setFilter("active");
+    setQuery("");
+    setSelectedListId(reminderFocus.listId);
+    setSelectedId(reminderFocus.todoId);
+    onReminderFocusHandled?.();
+  }, [
+    reminderFocus,
+    setFilter,
+    setQuery,
+    setSelectedListId,
+    onReminderFocusHandled,
+  ]);
+
+  useEffect(() => {
+    if (pendingReminderTodoId.current) return;
     setSelectedId(todos[0]?.id ?? null);
   }, [selectedListId, filter, query]);
 
   useEffect(() => {
+    const pending = pendingReminderTodoId.current;
+    if (pending && todos.some((t) => t.id === pending)) {
+      setSelectedId(pending);
+      pendingReminderTodoId.current = null;
+      return;
+    }
     if (selectedId && !todos.some((t) => t.id === selectedId)) {
       setSelectedId(todos[0]?.id ?? null);
     }
   }, [todos, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const el = document.querySelector(
+      `[data-todo-id="${CSS.escape(selectedId)}"]`,
+    );
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, todos]);
 
   useEffect(() => {
     const unsub = window.clippy.onWindowFocused(() => {
@@ -405,9 +443,7 @@ export function TodoTab() {
           ))}
         </div>
       ) : todos.length === 0 ? (
-        <div className="empty-state">
-          {emptyMessage(selectedList, filter)}
-        </div>
+        <div className="empty-state">{emptyMessage(selectedList, filter)}</div>
       ) : (
         <div className="clip-scroll flex-1 overflow-y-auto px-1.5 pb-1.5">
           {todos.map((todo) => (
@@ -489,6 +525,7 @@ function TodoRow({
     <div
       role="option"
       aria-selected={selected}
+      data-todo-id={todo.id}
       onClick={() => onSelect(todo.id)}
       className={cn(
         "clip-row todo-row",
@@ -498,10 +535,7 @@ function TodoRow({
     >
       <button
         type="button"
-        className={cn(
-          "todo-check",
-          todo.isCompleted && "todo-check-done",
-        )}
+        className={cn("todo-check", todo.isCompleted && "todo-check-done")}
         aria-label={todo.isCompleted ? "Mark incomplete" : "Mark complete"}
         onClick={(e) => {
           e.stopPropagation();
@@ -544,7 +578,10 @@ function TodoRow({
           />
         ) : (
           <p
-            className={cn("clip-preview todo-title", todo.isCompleted && "todo-title-done")}
+            className={cn(
+              "clip-preview todo-title",
+              todo.isCompleted && "todo-title-done",
+            )}
             onDoubleClick={(e) => {
               e.stopPropagation();
               onStartEdit();
@@ -558,10 +595,7 @@ function TodoRow({
 
       <button
         type="button"
-        className={cn(
-          "todo-priority",
-          `todo-priority-${todo.priority}`,
-        )}
+        className={cn("todo-priority", `todo-priority-${todo.priority}`)}
         title="Cycle priority"
         onClick={(e) => {
           e.stopPropagation();
@@ -571,10 +605,7 @@ function TodoRow({
         {PRIORITY_LABELS[todo.priority]}
       </button>
 
-      <div
-        className="todo-meta"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="todo-meta" onClick={(e) => e.stopPropagation()}>
         <input
           type="date"
           className={cn(

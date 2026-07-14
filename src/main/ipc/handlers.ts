@@ -320,6 +320,13 @@ export function notifyTodosUpdated(): void {
   broadcast(IPC_EVENTS.TODOS_UPDATED);
 }
 
+export function notifyTodoReminder(payload: {
+  todoId: string;
+  listId: string;
+}): void {
+  broadcast(IPC_EVENTS.TODO_REMINDER, payload);
+}
+
 /** Single-clip insert: renderer handles incremental list update. Do not also send CLIPS_UPDATED. */
 export function notifyClipAdded(clipId: string): void {
   broadcast(IPC_EVENTS.CLIP_ADDED, clipId);
