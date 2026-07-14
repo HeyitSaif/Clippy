@@ -1,146 +1,123 @@
-# Clippy v2
+# Clippy
 
-A modern cross-platform clipboard manager for **macOS**, **Windows**, and **Linux**. Built with Electron, React, and SQLite.
+A local, cross-platform clipboard manager for **macOS**, **Windows**, and **Linux**.
 
-Clippy runs in the system tray, captures clipboard history (text, images, file paths), and lets you search, pin, tag, and paste items back into any app — with global shortcuts and focus restoration.
+Clippy lives in the system tray, captures clipboard history (text, images, file paths), and lets you search, pin, tag, preview, and paste back into the app you were using — with global shortcuts and focus restoration. Built with Electron, React, and SQLite.
 
 ## Features
 
 - Clipboard history for text, images, and file paths
-- Command-palette-style floating panel with search and keyboard navigation
-- Global shortcuts: toggle panel, quick paste slots 1–9
-- Pin clips, snippets, tags, regex search (`/pattern/`), filter modes (`type:image`, `pinned:true`)
-- Rich preview panel, export/import history
-- Auto-paste into the app you were using before opening Clippy
-- Secure architecture: `contextIsolation`, preload IPC bridge, main-process clipboard access
-- SQLite + file-backed image storage (fast startup, no JSON bloat)
-- One-time migration from v1 `electron-store` data
-- System tray with auto-paste toggle, clear history, launch at login
+- Floating panel with search, filters, and full keyboard navigation
+- Global toggle shortcut and quick-paste slots `1`–`9`
+- Pins, snippets, tags, regex search (`/pattern/`), and filters (`type:image`, `pinned:true`)
+- Preview panel, export/import, and a lightweight todo list with reminders
+- Auto-paste into the previously focused app
+- Local SQLite storage + file-backed images (no cloud)
+- Secure Electron defaults: `contextIsolation`, preload IPC, main-process clipboard access
+- Optional migration from Clippy v1 (`electron-store`)
 
-## Supported platforms
+## Platforms
 
-| Platform | Status | Auto-paste | Paste slots |
-|----------|--------|------------|-------------|
-| macOS 12+ | Full | AppleScript (Accessibility required) | ⌘⌃1–9 |
-| Windows 10+ | Full | PowerShell SendKeys | Ctrl+Alt+1–9 |
-| Linux (X11) | Full* | `xdotool` required | Ctrl+Alt+1–9 |
+| Platform    | Support | Auto-paste                           | Paste slots      |
+| ----------- | ------- | ------------------------------------ | ---------------- |
+| macOS 12+   | Full    | AppleScript (Accessibility required) | `⌘⌃1`–`9`        |
+| Windows 10+ | Full    | PowerShell SendKeys                  | `Ctrl+Alt+1`–`9` |
+| Linux (X11) | Full\*  | `xdotool` required                   | `Ctrl+Alt+1`–`9` |
 
-\*On Linux, install [`xdotool`](https://github.com/jordansissel/xdotool). Wayland-only sessions may need XWayland or an X11 session for global paste simulation. See [docs/PLATFORMS.md](docs/PLATFORMS.md).
+\*On Linux, install [`xdotool`](https://github.com/jordansissel/xdotool). Pure Wayland may need XWayland/X11 for paste simulation. Details: [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
-## Development
+### First-run setup
+
+| Platform    | Requirement                                                                  |
+| ----------- | ---------------------------------------------------------------------------- |
+| **macOS**   | Enable Clippy under **System Settings → Privacy & Security → Accessibility** |
+| **Windows** | No extra setup                                                               |
+| **Linux**   | Install `xdotool`, then restart Clippy                                       |
+
+## Quick start (development)
+
+Requires Node.js 20+ and npm.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Typecheck and build:
-
 ```bash
-npm run typecheck
-npm run build
+npm run typecheck   # typecheck
+npm test            # unit tests
+npm run build       # compile app (no installer)
 ```
 
 ## Build installers
 
-Build on the target OS (or use CI) — `better-sqlite3` is a native module.
+Build on the target OS (or CI). `better-sqlite3` is a native module.
 
-| Command | Output |
-|---------|--------|
-| `npm run dist:mac` | macOS `.dmg` + `.zip` |
-| `npm run dist:dir` | Unpacked macOS `.app` (testing) |
-| `npm run dist:win` | Windows NSIS installer + portable |
-| `npm run dist:dir:win` | Unpacked Windows build |
-| `npm run dist:linux` | AppImage + `.deb` |
-| `npm run dist:dir:linux` | Unpacked Linux build |
+| Command              | Output                         |
+| -------------------- | ------------------------------ |
+| `npm run dist:mac`   | macOS `.dmg` + `.zip`          |
+| `npm run dist:win`   | Windows NSIS + portable        |
+| `npm run dist:linux` | AppImage + `.deb`              |
+| `npm run dist:dir`   | Unpacked app (fast local test) |
 
-Unsigned macOS build (local testing):
+Unsigned macOS package for local testing:
 
 ```bash
 CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:dir
 ```
 
-Artifacts are written to `release/`.
+Artifacts land in `release/`.
 
-## Keyboard shortcuts
+## Shortcuts
 
-### Panel (in-app)
+### In the panel
 
-| Shortcut | Action |
-|----------|--------|
-| `↑` / `↓` | Navigate list |
-| `Enter` / click row | Paste selected clip |
-| `Esc` | Hide panel |
-| `Cmd+F` / `Ctrl+F` | Focus search |
-| `Cmd+P` / `Ctrl+P` | Preview selected clip |
-| `Cmd+K` / `Ctrl+K` | Focus search (footer hint) |
+| Shortcut     | Action                |
+| ------------ | --------------------- |
+| `↑` / `↓`    | Navigate              |
+| `Enter`      | Paste selected clip   |
+| `Esc`        | Hide panel            |
+| `Cmd/Ctrl+F` | Focus search          |
+| `Cmd/Ctrl+P` | Preview selected clip |
 
 ### Global
 
-| Shortcut | macOS | Windows / Linux | Action |
-|----------|-------|-----------------|--------|
-| Toggle panel | `Alt+Space` (default, configurable) | same | Show/hide Clippy |
-| Paste slot N | `⌘⌃1`–`⌘⌃9` | `Ctrl+Alt+1`–`9` | Paste Nth recent clip |
+| Action         | macOS                      | Windows / Linux  |
+| -------------- | -------------------------- | ---------------- |
+| Toggle panel   | `Alt+Space` (configurable) | same             |
+| Paste slot `N` | `⌘⌃1`–`⌘⌃9`                | `Ctrl+Alt+1`–`9` |
 
 Paste slots always auto-paste, even when the in-app **Auto paste** toggle is off.
 
-On macOS, slots use **Command+Control** (not Command+Option) because global ⌘⌥+digit shortcuts are unreliable on recent macOS versions.
+On macOS, slots use **Command+Control** (not Command+Option) because global `⌘⌥`+digit shortcuts are unreliable on recent macOS versions.
 
-## Platform setup
+## Data
 
-### macOS
+Stored under Electron `userData`:
 
-Auto-paste and focus restoration require **Accessibility** permission:
+| Platform | Path                                    |
+| -------- | --------------------------------------- |
+| macOS    | `~/Library/Application Support/clippy/` |
+| Windows  | `%APPDATA%\clippy\`                     |
+| Linux    | `~/.config/clippy/`                     |
 
-**System Settings → Privacy & Security → Accessibility → enable Clippy**
+| File / folder | Purpose                                        |
+| ------------- | ---------------------------------------------- |
+| `clippy.db`   | SQLite database (clips, tags, settings, todos) |
+| `images/`     | Full-size image clips                          |
+| `thumbs/`     | Thumbnails                                     |
 
-Clippy prompts on first launch if permission is missing. You can also open settings from **Settings → Accessibility → Open Settings**.
-
-### Windows
-
-No extra permission step. Auto-paste uses the standard Ctrl+V shortcut via PowerShell. Clippy stays in the system tray when the panel is closed.
-
-### Linux
-
-Install `xdotool`:
-
-```bash
-# Debian / Ubuntu
-sudo apt install xdotool
-
-# Fedora
-sudo dnf install xdotool
-
-# Arch
-sudo pacman -S xdotool
-```
-
-Restart Clippy after installing. A setup banner appears in the app until `xdotool` is detected.
-
-## Data locations
-
-Clippy stores data under Electron `userData`:
-
-| Platform | Path |
-|----------|------|
-| macOS | `~/Library/Application Support/clippy/` |
-| Windows | `%APPDATA%\clippy\` |
-| Linux | `~/.config/clippy/` |
-
-Contents:
-
-- `clippy.db` — SQLite database (clips, tags, settings)
-- `images/` — full-size image clips
-- `thumbs/` — image thumbnails
-
-Legacy v1 import reads from the old `electron-clippy` config path on each platform (see [docs/V1_BASELINE.md](docs/V1_BASELINE.md)).
+Logs: platform-specific Electron log directory for app name `clippy` (for example `~/Library/Logs/clippy/` on macOS).
 
 ## Documentation
 
-- [docs/PLATFORMS.md](docs/PLATFORMS.md) — per-platform behavior, troubleshooting, Wayland notes
-- [docs/V1_BASELINE.md](docs/V1_BASELINE.md) — v1 archive and migration reference
-- [`legacy/v1/`](legacy/v1/) — v1 source code
+| Doc                                        | Contents                                        |
+| ------------------------------------------ | ----------------------------------------------- |
+| [docs/PLATFORMS.md](docs/PLATFORMS.md)     | Per-OS behavior, troubleshooting, Wayland notes |
+| [docs/V1_BASELINE.md](docs/V1_BASELINE.md) | v1 archive and migration reference              |
+| [CONTRIBUTING.md](CONTRIBUTING.md)         | How to contribute                               |
+| [`legacy/v1/`](legacy/v1/)                 | v1 source                                       |
 
 ## License
 
-GPL-3.0-or-later
+[GPL-3.0-or-later](LICENSE)
