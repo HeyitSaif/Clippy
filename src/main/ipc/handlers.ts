@@ -303,9 +303,14 @@ export function registerIpcHandlers(deps: {
   });
 
   ipcMain.handle(IPC.TODOS_CREATE, (_e, input: CreateTodoInput) => {
-    const todo = todoRepo.createTodo(input);
-    broadcast(IPC_EVENTS.TODOS_UPDATED);
-    return todo;
+    try {
+      const todo = todoRepo.createTodo(input);
+      broadcast(IPC_EVENTS.TODOS_UPDATED);
+      return todo;
+    } catch (err) {
+      log.error("todos:create failed", err);
+      throw err;
+    }
   });
 
   ipcMain.handle(

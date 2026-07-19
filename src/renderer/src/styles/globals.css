@@ -198,6 +198,14 @@ body {
   color: var(--text-tertiary);
 }
 
+/* Hide native WebKit clear so we don't stack two X buttons with .search-clear */
+.glass-search[type="search"]::-webkit-search-cancel-button,
+.glass-search[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 .search-clear {
   position: absolute;
   right: 4px;

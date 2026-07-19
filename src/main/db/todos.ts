@@ -96,6 +96,55 @@ function setMeta(db: Database.Database, key: string, value: string): void {
   ).run(key, value);
 }
 
+function readSettingJson(db: Database.Database, key: string): unknown {
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as
+    | { value: string }
+    | undefined;
+  if (!row) return undefined;
+  try {
+    return JSON.parse(row.value) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeSettingJson(
+  db: Database.Database,
+  key: string,
+  value: unknown,
+): void {
+  db.prepare(
+    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  ).run(key, JSON.stringify(value));
+}
+
+/** When a system list id is remapped, keep todoDefaultListId in sync. */
+function remapDefaultListSetting(
+  db: Database.Database,
+  oldId: string,
+  newId: string,
+): void {
+  const current = readSettingJson(db, "todoDefaultListId");
+  if (current === oldId) {
+    writeSettingJson(db, "todoDefaultListId", newId);
+  }
+}
+
+/** If todoDefaultListId points at a missing list, fall back to Inbox. */
+function repairDefaultListSetting(db: Database.Database): void {
+  const current = readSettingJson(db, "todoDefaultListId");
+  if (typeof current !== "string" || !current) {
+    writeSettingJson(db, "todoDefaultListId", TODO_SYSTEM_LIST_IDS.inbox);
+    return;
+  }
+  const exists = db
+    .prepare("SELECT 1 AS ok FROM todo_lists WHERE id = ? LIMIT 1")
+    .get(current) as { ok: number } | undefined;
+  if (!exists) {
+    writeSettingJson(db, "todoDefaultListId", TODO_SYSTEM_LIST_IDS.inbox);
+  }
+}
+
 export interface CreateTodoInput {
   title: string;
   listId: string;
@@ -128,7 +177,8 @@ export class TodoRepository {
 
   /**
    * Seed Inbox / Daily / Weekly lists if missing (meta key `todo_seeded`).
-   * Safe to call repeatedly; creates any missing system list by kind/id.
+   * Migrates legacy UUID system-list ids → stable `todo-list-*` ids so settings
+   * and createTodo (which use TODO_SYSTEM_LIST_IDS) keep working across upgrades.
    */
   static ensureDefaults(db: Database.Database): void {
     const now = Date.now();
@@ -142,14 +192,38 @@ export class TodoRepository {
     const findByKind = db.prepare(
       "SELECT id FROM todo_lists WHERE kind = ? LIMIT 1",
     );
+    const renameList = db.prepare(
+      "UPDATE todo_lists SET id = ?, name = ?, sort_order = ?, updated_at = ? WHERE id = ?",
+    );
+    const reassignTodos = db.prepare(
+      "UPDATE todos SET list_id = ? WHERE list_id = ?",
+    );
 
-    for (const def of DEFAULT_LISTS) {
-      const byId = findById.get(def.id);
-      if (byId) continue;
-      const byKind = findByKind.get(def.kind);
-      if (byKind) continue;
-      insert.run(def.id, def.name, def.kind, def.sortOrder, now, now);
+    // PK remaps need FKs off briefly (todos.list_id → todo_lists.id).
+    db.pragma("foreign_keys = OFF");
+    try {
+      for (const def of DEFAULT_LISTS) {
+        const byId = findById.get(def.id) as { id: string } | undefined;
+        if (byId) continue;
+
+        const byKind = findByKind.get(def.kind) as { id: string } | undefined;
+        if (byKind) {
+          const oldId = byKind.id;
+          if (oldId !== def.id) {
+            renameList.run(def.id, def.name, def.sortOrder, now, oldId);
+            reassignTodos.run(def.id, oldId);
+            remapDefaultListSetting(db, oldId, def.id);
+          }
+          continue;
+        }
+
+        insert.run(def.id, def.name, def.kind, def.sortOrder, now, now);
+      }
+    } finally {
+      db.pragma("foreign_keys = ON");
     }
+
+    repairDefaultListSetting(db);
 
     if (getMeta(db, META_TODO_SEEDED) !== "true") {
       setMeta(db, META_TODO_SEEDED, "true");

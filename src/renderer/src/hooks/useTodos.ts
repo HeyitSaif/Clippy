@@ -52,11 +52,16 @@ export function useTodos() {
   }, [])
 
   useEffect(() => {
-    if (!settings || appliedDefaultList.current) return
+    if (!settings || appliedDefaultList.current || lists.length === 0) return
     appliedDefaultList.current = true
     const id = settings.todoDefaultListId
-    if (id) setSelectedListId(id)
-  }, [settings])
+    if (id && lists.some((l) => l.id === id)) {
+      setSelectedListId(id)
+      return
+    }
+    const inbox = lists.find((l) => l.kind === 'inbox')
+    if (inbox) setSelectedListId(inbox.id)
+  }, [settings, lists])
 
   const effectiveFilter: TodoFilter = effectiveTodoFilter(filter, showCompleted)
 
