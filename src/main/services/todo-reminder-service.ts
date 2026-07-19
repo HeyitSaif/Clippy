@@ -65,9 +65,7 @@ export class TodoReminderService {
       }
 
       const now = Date.now();
-      const due = this.todoRepo
-        .listTodos({ completed: false })
-        .filter((t) => t.remindAt != null && t.remindAt <= now);
+      const due = this.todoRepo.listDueReminders(now);
 
       if (due.length === 0) return;
 

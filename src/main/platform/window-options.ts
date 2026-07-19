@@ -2,9 +2,9 @@ import type { BrowserWindowConstructorOptions } from 'electron'
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   const shared: BrowserWindowConstructorOptions = {
-    width: 360,
-    height: 520,
-    minWidth: 320,
+    width: 440,
+    height: 560,
+    minWidth: 360,
     minHeight: 380,
     show: false,
     frame: false,

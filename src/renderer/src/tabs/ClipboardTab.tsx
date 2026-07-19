@@ -9,22 +9,25 @@ import { useClips, type ClipFilter } from "../hooks/useClips";
 import { useToast } from "../hooks/useToast";
 import { cn } from "../lib/utils";
 
-const FILTERS: { id: ClipFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "text", label: "Text" },
-  { id: "image", label: "Img" },
-  { id: "file", label: "File" },
-  { id: "pinned", label: "Pin" },
-  { id: "snippet", label: "Snip" },
+const FILTERS: { id: ClipFilter; label: string; ariaLabel: string }[] = [
+  { id: "all", label: "All", ariaLabel: "All clips" },
+  { id: "text", label: "Text", ariaLabel: "Text clips" },
+  { id: "image", label: "Img", ariaLabel: "Image clips" },
+  { id: "file", label: "File", ariaLabel: "File clips" },
+  { id: "pinned", label: "Pin", ariaLabel: "Pinned clips" },
+  { id: "snippet", label: "Snip", ariaLabel: "Snippets" },
 ];
 
-const EMPTY: Record<ClipFilter, string> = {
-  all: "Copy something — it'll show up here",
-  text: "No text clips",
-  image: "No image clips",
-  file: "No file clips",
-  pinned: "No pinned clips",
-  snippet: "No snippets yet",
+const EMPTY: Record<ClipFilter, { title: string; hint?: string }> = {
+  all: {
+    title: "Copy something — it'll show up here",
+    hint: "Paste with Enter · Search with ⌘K",
+  },
+  text: { title: "No text clips" },
+  image: { title: "No image clips" },
+  file: { title: "No file clips" },
+  pinned: { title: "No pinned clips", hint: "Pin clips to keep them handy" },
+  snippet: { title: "No snippets yet", hint: "Save a clip as a reusable snippet" },
 };
 
 export function ClipboardTab() {
@@ -309,6 +312,7 @@ export function ClipboardTab() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="glass-search glass-search-compact"
+            aria-label="Search clips"
           />
           {query && (
             <button
@@ -321,12 +325,14 @@ export function ClipboardTab() {
             </button>
           )}
         </div>
-        <div className="filter-row">
+        <div className="filter-row" role="toolbar" aria-label="Filter clips">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
               onClick={() => setFilter(f.id)}
+              aria-label={f.ariaLabel}
+              aria-pressed={filter === f.id}
               className={cn(
                 "filter-chip",
                 filter === f.id && "filter-chip-active",
@@ -335,13 +341,16 @@ export function ClipboardTab() {
               {f.label}
             </button>
           ))}
-          <span className="clip-count">{loading ? "…" : clips.length}</span>
+          <span className="clip-count" aria-live="polite">
+            {loading ? "…" : clips.length}
+          </span>
         </div>
         {selectedClip && (
-          <div className="tag-bar no-drag">
+          <div className="tag-bar no-drag" aria-label="Tags for selected clip">
             <IconTag
               size={11}
               className="shrink-0 text-[var(--text-tertiary)]"
+              aria-hidden
             />
             {selectedClip.tags.map((tag) => (
               <button
@@ -349,10 +358,10 @@ export function ClipboardTab() {
                 type="button"
                 className="tag-chip tag-chip-active"
                 onClick={() => void handleRemoveTag(tag)}
-                title="Remove tag"
+                aria-label={`Remove tag ${tag}`}
               >
                 #{tag}
-                <IconX size={9} />
+                <IconX size={9} aria-hidden />
               </button>
             ))}
             <input
@@ -361,6 +370,7 @@ export function ClipboardTab() {
               value={tagInput}
               placeholder="Add tag…"
               className="tag-input"
+              aria-label="Add tag"
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -377,13 +387,22 @@ export function ClipboardTab() {
       </div>
 
       {loading && clips.length === 0 ? (
-        <div className="flex flex-1 flex-col gap-1 px-3 py-1">
+        <div
+          className="flex flex-1 flex-col gap-1 px-2.5 py-1.5"
+          aria-busy="true"
+          aria-label="Loading clips"
+        >
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="shimmer h-8 rounded-md" />
+            <div key={i} className="shimmer clip-shimmer" />
           ))}
         </div>
       ) : clips.length === 0 ? (
-        <div className="empty-state">{EMPTY[filter]}</div>
+        <div className="empty-state">
+          <span>{EMPTY[filter].title}</span>
+          {EMPTY[filter].hint && (
+            <span className="empty-state-hint">{EMPTY[filter].hint}</span>
+          )}
+        </div>
       ) : (
         <ClipList
           clips={clips}

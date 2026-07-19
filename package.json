@@ -1,6 +1,6 @@
 {
   "name": "clippy",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A modern cross-platform clipboard manager for macOS, Windows, and Linux",
   "main": "./out/main/index.js",
   "author": "Saif",

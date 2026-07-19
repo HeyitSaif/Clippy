@@ -65,6 +65,7 @@ export function ClipList({
     getScrollElement: () => parentRef.current,
     estimateSize: (i) =>
       clips[i]?.type === "image" && clips[i]?.hasThumb ? ROW_H_IMG : ROW_H,
+    getItemKey: (i) => clips[i]?.id ?? i,
     overscan: 8,
   });
 
@@ -91,6 +92,8 @@ export function ClipList({
   return (
     <div
       ref={parentRef}
+      role="listbox"
+      aria-label="Clipboard history"
       className="clip-scroll flex-1 overflow-y-auto px-1.5 pb-1.5"
     >
       <div
@@ -103,7 +106,7 @@ export function ClipList({
           const clip = clips[virtualRow.index];
           return (
             <div
-              key={clip.id}
+              key={virtualRow.key}
               style={{
                 position: "absolute",
                 top: 0,
@@ -168,10 +171,16 @@ const ClipRow = memo(function ClipRow({
   const thumbSrc = isImage ? thumbUrl(clip.id) : undefined;
   const slot = index < 9 && !searchQuery.trim() ? index + 1 : null;
 
+  const previewLabel =
+    clip.isSnippet && clip.snippetName
+      ? clip.snippetName
+      : clip.preview || (isImage ? "Image clip" : "Clip");
+
   return (
     <div
       role="option"
       aria-selected={selected}
+      aria-label={previewLabel}
       tabIndex={0}
       onClick={() => {
         onSelect(clip.id);
@@ -184,19 +193,27 @@ const ClipRow = memo(function ClipRow({
       )}
       style={{ minHeight: isImage ? ROW_H_IMG : ROW_H }}
     >
-      {slot !== null && <span className="clip-slot">{slot}</span>}
+      {slot !== null && (
+        <span className="clip-slot" aria-hidden>
+          {slot}
+        </span>
+      )}
       {!isImage && <TypeGlyph type={clip.type} />}
-      <div className="min-w-0 flex-1 flex items-center gap-1">
+      <div className="clip-row-main">
         {clip.isPinned && (
-          <IconPin size={8} className="shrink-0 text-[var(--accent)]" />
+          <IconPin
+            size={8}
+            className="shrink-0 text-[var(--accent)]"
+            aria-hidden
+          />
         )}
         {clip.isSnippet && (
           <span
             className="clip-badge"
-            title={
+            aria-label={
               clip.snippetName
-                ? `${clip.snippetName} — double-click to rename`
-                : "Snippet — double-click to rename"
+                ? `Snippet ${clip.snippetName}, double-click to rename`
+                : "Snippet, double-click to rename"
             }
             onDoubleClick={(e) => {
               e.stopPropagation();
@@ -207,18 +224,27 @@ const ClipRow = memo(function ClipRow({
           </span>
         )}
         {isImage ? (
-          thumbSrc ? (
-            <img src={thumbSrc} alt="" className="clip-thumb" />
-          ) : (
-            <div className="clip-thumb clip-thumb-placeholder" />
-          )
+          <>
+            {thumbSrc ? (
+              <img src={thumbSrc} alt="" className="clip-thumb" />
+            ) : (
+              <div className="clip-thumb clip-thumb-placeholder" />
+            )}
+            {clip.preview ? (
+              <p className="clip-preview">
+                <HighlightText text={clip.preview} query={searchQuery} />
+              </p>
+            ) : null}
+          </>
         ) : (
           <p className="clip-preview">
             <HighlightText text={clip.preview} query={searchQuery} />
           </p>
         )}
       </div>
-      <span className="clip-time">{formatRelativeTime(clip.createdAt)}</span>
+      <span className="clip-time" aria-hidden>
+        {formatRelativeTime(clip.createdAt)}
+      </span>
       <div className="clip-actions no-drag">
         <IconTip
           label="Copy"
@@ -299,5 +325,9 @@ function TypeGlyph({ type }: { type: ClipListItem["type"] }) {
     ) : (
       <IconText size={10} />
     );
-  return <span className="clip-type-glyph">{icon}</span>;
+  return (
+    <span className="clip-type-glyph" aria-hidden>
+      {icon}
+    </span>
+  );
 }

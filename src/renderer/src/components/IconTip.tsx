@@ -1,14 +1,23 @@
-import { useId, useRef, useState } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../lib/utils";
 
 interface IconTipProps {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   accent?: boolean;
   danger?: boolean;
-  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Default action styling for clip rows; `icon` for chrome controls. */
+  variant?: "action" | "icon";
+  /** When omitted, renders a non-interactive tip target (static icons). */
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
 }
 
 type Placement = "top" | "bottom";
@@ -35,16 +44,18 @@ export function IconTip({
   className,
   accent,
   danger,
+  variant = "action",
   onClick,
 }: IconTipProps) {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState<TipCoords | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const tipId = useId();
+  const interactive = typeof onClick === "function";
 
   const show = (): void => {
-    if (!btnRef.current) return;
-    setCoords(computeCoords(btnRef.current));
+    if (!triggerRef.current) return;
+    setCoords(computeCoords(triggerRef.current));
     setVisible(true);
   };
 
@@ -52,24 +63,43 @@ export function IconTip({
     setVisible(false);
   };
 
+  const setTriggerRef = (node: HTMLElement | null): void => {
+    triggerRef.current = node;
+  };
+
+  const triggerClassName = cn(
+    variant === "action" && "clip-action-btn",
+    variant === "action" && accent && "clip-action-btn-accent",
+    variant === "action" && danger && "clip-action-btn-danger",
+    variant === "icon" && "icon-btn",
+    variant === "icon" && accent && "icon-btn-accent",
+    className,
+  );
+
   return (
     <>
       <span className="icon-tip-wrap" onMouseEnter={show} onMouseLeave={hide}>
-        <button
-          ref={btnRef}
-          type="button"
-          aria-label={label}
-          aria-describedby={visible ? tipId : undefined}
-          onClick={onClick}
-          className={cn(
-            "clip-action-btn",
-            accent && "clip-action-btn-accent",
-            danger && "clip-action-btn-danger",
-            className,
-          )}
-        >
-          {children}
-        </button>
+        {interactive ? (
+          <button
+            ref={setTriggerRef}
+            type="button"
+            aria-label={label}
+            aria-describedby={visible ? tipId : undefined}
+            onClick={onClick}
+            className={triggerClassName}
+          >
+            {children}
+          </button>
+        ) : (
+          <span
+            ref={setTriggerRef}
+            aria-label={label}
+            aria-describedby={visible ? tipId : undefined}
+            className={cn("icon-tip-static", triggerClassName)}
+          >
+            {children}
+          </span>
+        )}
       </span>
       {visible &&
         coords &&

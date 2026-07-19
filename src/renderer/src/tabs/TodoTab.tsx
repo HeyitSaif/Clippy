@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TodoItem, TodoList, TodoPriority } from "@shared/types";
 import { TODO_SYSTEM_LIST_IDS } from "@shared/types";
+import { IconTip } from "../components/IconTip";
 import { Toast } from "../components/Toast";
 import {
   IconBell,
+  IconCalendar,
   IconPencil,
   IconPlus,
   IconSearch,
@@ -12,7 +14,7 @@ import {
 } from "../components/icons";
 import { useTodos, listLabel, type TodoFilter } from "../hooks/useTodos";
 import { useToast } from "../hooks/useToast";
-import { cn, isOverdue } from "../lib/utils";
+import { cn, formatRemindTime, isOverdue } from "../lib/utils";
 
 const PRIORITY_LABELS: Record<TodoPriority, string> = {
   0: "—",
@@ -75,6 +77,29 @@ function fromDatetimeLocal(value: string): number | null {
   if (!value) return null;
   const t = new Date(value).getTime();
   return Number.isNaN(t) ? null : t;
+}
+
+function formatDueTooltip(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function openNativePicker(input: HTMLInputElement | null): void {
+  if (!input) return;
+  try {
+    if (typeof input.showPicker === "function") {
+      void input.showPicker();
+      return;
+    }
+  } catch {
+    // showPicker can throw if not triggered by a user gesture in some engines
+  }
+  input.focus();
+  input.click();
 }
 
 export function TodoTab({
@@ -603,6 +628,9 @@ function TodoRow({
   const [notesDraft, setNotesDraft] = useState(todo.notes ?? "");
   const editRef = useRef<HTMLInputElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
+  const dueInputRef = useRef<HTMLInputElement>(null);
+  const remindInputRef = useRef<HTMLInputElement>(null);
+  const overdue = isOverdue(todo);
 
   useEffect(() => {
     if (editing) {
@@ -715,7 +743,8 @@ function TodoRow({
         <button
           type="button"
           className={cn("todo-priority", `todo-priority-${todo.priority}`)}
-          title="Cycle priority"
+          title={`Priority: ${PRIORITY_LABELS[todo.priority]} — click to cycle`}
+          aria-label={`Priority ${PRIORITY_LABELS[todo.priority]}, cycle priority`}
           onClick={(e) => {
             e.stopPropagation();
             void onCyclePriority(todo.id);
@@ -726,64 +755,96 @@ function TodoRow({
 
         <div className="todo-meta" onClick={(e) => e.stopPropagation()}>
           <input
+            ref={dueInputRef}
             type="date"
-            className={cn(
-              "todo-date-input",
-              isOverdue(todo) && "todo-date-input-overdue",
-            )}
+            className="todo-picker-input"
+            tabIndex={-1}
             value={toDateInput(todo.dueAt)}
-            title={todo.dueAt ? "Due date" : "Set due date"}
             onChange={(e) => {
               void onUpdate(todo.id, { dueAt: fromDateInput(e.target.value) });
             }}
           />
+          <IconTip
+            label={
+              todo.dueAt != null
+                ? overdue
+                  ? `Due ${formatDueTooltip(todo.dueAt)} · Overdue`
+                  : `Due ${formatDueTooltip(todo.dueAt)}`
+                : "Set due date"
+            }
+            accent={todo.dueAt != null && !overdue}
+            danger={overdue}
+            className={cn(
+              "todo-meta-trigger",
+              todo.dueAt != null && "todo-meta-trigger-set",
+              overdue && "todo-meta-trigger-overdue",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              openNativePicker(dueInputRef.current);
+            }}
+          >
+            <IconCalendar size={12} />
+          </IconTip>
           {todo.dueAt != null && (
-            <button
-              type="button"
+            <IconTip
+              label="Clear due date"
+              danger
               className="todo-meta-clear"
-              aria-label="Clear due date"
-              title="Clear due"
-              onClick={() => void onUpdate(todo.id, { dueAt: null })}
+              onClick={(e) => {
+                e.stopPropagation();
+                void onUpdate(todo.id, { dueAt: null });
+              }}
             >
-              <IconX size={8} />
-            </button>
+              <IconX size={9} />
+            </IconTip>
           )}
         </div>
 
         {remindersEnabled && (
-          <div
-            className="todo-meta todo-meta-remind"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <IconBell
-              size={9}
-              className={
-                todo.remindAt
-                  ? "text-[var(--accent)] shrink-0"
-                  : "text-[var(--text-tertiary)] shrink-0 opacity-60"
-              }
-            />
+          <div className="todo-meta" onClick={(e) => e.stopPropagation()}>
             <input
+              ref={remindInputRef}
               type="datetime-local"
-              className="todo-datetime-input"
+              className="todo-picker-input"
+              tabIndex={-1}
               value={toDatetimeLocal(todo.remindAt)}
-              title={todo.remindAt ? "Reminder" : "Set reminder"}
               onChange={(e) => {
                 void onUpdate(todo.id, {
                   remindAt: fromDatetimeLocal(e.target.value),
                 });
               }}
             />
+            <IconTip
+              label={
+                todo.remindAt != null
+                  ? `Remind ${formatRemindTime(todo.remindAt)}`
+                  : "Set reminder"
+              }
+              accent={todo.remindAt != null}
+              className={cn(
+                "todo-meta-trigger",
+                todo.remindAt != null && "todo-meta-trigger-set",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                openNativePicker(remindInputRef.current);
+              }}
+            >
+              <IconBell size={12} />
+            </IconTip>
             {todo.remindAt != null && (
-              <button
-                type="button"
+              <IconTip
+                label="Clear reminder"
+                danger
                 className="todo-meta-clear"
-                aria-label="Clear reminder"
-                title="Clear reminder"
-                onClick={() => void onUpdate(todo.id, { remindAt: null })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void onUpdate(todo.id, { remindAt: null });
+                }}
               >
-                <IconX size={8} />
-              </button>
+                <IconX size={9} />
+              </IconTip>
             )}
           </div>
         )}
@@ -808,56 +869,45 @@ function TodoRow({
         </select>
 
         <div className="todo-row-actions no-drag">
-          <button
-            type="button"
-            className="clip-action-btn"
-            aria-label="Move up"
-            title="Move up (⌥↑)"
+          <IconTip
+            label="Move up (⌥↑)"
             onClick={(e) => {
               e.stopPropagation();
               onMove(todo.id, -1);
             }}
           >
             ↑
-          </button>
-          <button
-            type="button"
-            className="clip-action-btn"
-            aria-label="Move down"
-            title="Move down (⌥↓)"
+          </IconTip>
+          <IconTip
+            label="Move down (⌥↓)"
             onClick={(e) => {
               e.stopPropagation();
               onMove(todo.id, 1);
             }}
           >
             ↓
-          </button>
+          </IconTip>
           {!editing && (
-            <button
-              type="button"
-              className="clip-action-btn"
-              aria-label="Edit"
-              title="Edit title"
+            <IconTip
+              label="Edit title"
               onClick={(e) => {
                 e.stopPropagation();
                 onStartEdit();
               }}
             >
               <IconPencil size={11} />
-            </button>
+            </IconTip>
           )}
-          <button
-            type="button"
-            className="clip-action-btn clip-action-btn-danger"
-            aria-label="Delete"
-            title="Delete"
+          <IconTip
+            label="Delete"
+            danger
             onClick={(e) => {
               e.stopPropagation();
               void onDelete(todo.id);
             }}
           >
             <IconTrash size={11} />
-          </button>
+          </IconTip>
         </div>
       </div>
 

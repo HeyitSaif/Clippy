@@ -12,7 +12,7 @@ export function AccessibilityBanner({
   onEnable,
 }: AccessibilityBannerProps) {
   return (
-    <div className="accessibility-banner no-drag">
+    <div className="accessibility-banner no-drag" role="status">
       <div className="accessibility-banner-text">
         <p className="accessibility-banner-title">
           Setup required for auto-paste
@@ -26,6 +26,7 @@ export function AccessibilityBanner({
         type="button"
         className="accessibility-banner-btn"
         disabled={requesting}
+        aria-busy={requesting}
         onClick={() => void onEnable()}
       >
         {requesting ? "Opening…" : "Fix setup"}

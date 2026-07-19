@@ -1,6 +1,8 @@
 import { ipcMain, BrowserWindow, app, dialog } from "electron";
 import fs from "node:fs";
+import log from "electron-log";
 import { IPC, IPC_EVENTS } from "@shared/ipc-channels";
+import { parseExportPayload } from "@shared/export-payload";
 import type { ClipRepository, SettingsRepository } from "../db/database";
 import type {
   CreateTodoInput,
@@ -148,34 +150,63 @@ export function registerIpcHandlers(deps: {
       },
     );
     if (result.canceled || !result.filePaths[0]) return 0;
-    const raw = JSON.parse(
-      fs.readFileSync(result.filePaths[0], "utf8"),
-    ) as ExportPayload;
-    const imported = clipRepo.runInTransaction(() => {
-      let count = 0;
-      for (const clip of raw.clips ?? []) {
-        if (clipRepo.getByHash(clip.hash)) continue;
-        clipRepo.insertClip({
-          type: clip.type,
-          hash: `${clip.hash}-import-${Date.now()}-${count}`,
-          preview: clip.preview,
-          textContent: clip.textContent,
-          htmlContent: clip.htmlContent,
-          rtfContent: clip.rtfContent,
-          imagePath: clip.imagePath,
-          thumbPath: clip.thumbPath,
-          filePath: clip.filePath,
-          isPinned: clip.isPinned,
-          isSnippet: clip.isSnippet,
-          snippetName: clip.snippetName,
-          tags: clip.tags,
-        });
-        count++;
-      }
-      return count;
-    });
-    broadcast(IPC_EVENTS.CLIPS_UPDATED);
-    return imported;
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(fs.readFileSync(result.filePaths[0], "utf8"));
+    } catch (err) {
+      log.error("Import failed: invalid JSON", err);
+      return 0;
+    }
+
+    const parsed = parseExportPayload(parsedJson);
+    if (!parsed.ok) {
+      log.error(`Import failed: ${parsed.error}`);
+      return 0;
+    }
+
+    try {
+      const imported = clipRepo.runInTransaction(() => {
+        let count = 0;
+        for (const clip of parsed.payload.clips) {
+          if (clipRepo.getByHash(clip.hash)) continue;
+
+          let imagePath = clip.imagePath;
+          let thumbPath = clip.thumbPath;
+          if (imagePath && !fs.existsSync(imagePath)) {
+            log.warn(`Import: missing image file, nulling path (${imagePath})`);
+            imagePath = null;
+          }
+          if (thumbPath && !fs.existsSync(thumbPath)) {
+            log.warn(`Import: missing thumb file, nulling path (${thumbPath})`);
+            thumbPath = null;
+          }
+
+          clipRepo.insertClip({
+            type: clip.type,
+            hash: `${clip.hash}-import-${Date.now()}-${count}`,
+            preview: clip.preview,
+            textContent: clip.textContent,
+            htmlContent: clip.htmlContent,
+            rtfContent: clip.rtfContent,
+            imagePath,
+            thumbPath,
+            filePath: clip.filePath,
+            isPinned: clip.isPinned,
+            isSnippet: clip.isSnippet,
+            snippetName: clip.snippetName,
+            tags: clip.tags,
+          });
+          count++;
+        }
+        return count;
+      });
+      broadcast(IPC_EVENTS.CLIPS_UPDATED);
+      return imported;
+    } catch (err) {
+      log.error("Import failed: database error", err);
+      return 0;
+    }
   });
 
   ipcMain.handle(IPC.CLIPS_PASTE_SLOT, async (_e, slot: number) => {

@@ -7,6 +7,7 @@ import { useSettings } from "./hooks/useClips";
 import { useAccessibility } from "./hooks/useAccessibility";
 import { usePlatform } from "./hooks/usePlatform";
 import { AccessibilityBanner } from "./components/AccessibilityBanner";
+import { IconTip } from "./components/IconTip";
 import { IconSettings } from "./components/icons";
 
 type Tab = "clipboard" | "todo";
@@ -54,14 +55,15 @@ export default function App() {
             ))}
           </nav>
 
-          <button
-            type="button"
+          <IconTip
+            label="Settings"
+            variant="icon"
+            accent
+            className="no-drag icon-btn-sm"
             onClick={() => setSettingsOpen(true)}
-            className="no-drag icon-btn icon-btn-sm icon-btn-accent"
-            aria-label="Settings"
           >
             <IconSettings size={14} />
-          </button>
+          </IconTip>
         </header>
 
         <main className="relative flex min-h-0 flex-1 flex-col">
@@ -86,22 +88,28 @@ export default function App() {
         <footer className="drag-region app-footer">
           <div className="no-drag hint-bar">
             <span>
-              <span className="hint-kbd">↑↓</span> nav
+              <span className="hint-kbd">↑↓</span>
+              nav
             </span>
             <span>
-              <span className="hint-kbd">↵</span> paste
+              <span className="hint-kbd">↵</span>
+              paste
             </span>
             <span>
-              <span className="hint-kbd">{isMac ? "⌘K" : "Ctrl+K"}</span> search
+              <span className="hint-kbd">{isMac ? "⌘K" : "Ctrl+K"}</span>
+              search
             </span>
             <span>
-              <span className="hint-kbd">{pasteSlotLabel}</span> paste
+              <span className="hint-kbd">{pasteSlotLabel}</span>
+              paste
             </span>
             <span>
-              <span className="hint-kbd">{isMac ? "⌘⌫" : "Del"}</span> del
+              <span className="hint-kbd">{isMac ? "⌘⌫" : "Del"}</span>
+              del
             </span>
             <span>
-              <span className="hint-kbd">esc</span> hide
+              <span className="hint-kbd">esc</span>
+              hide
             </span>
           </div>
         </footer>
